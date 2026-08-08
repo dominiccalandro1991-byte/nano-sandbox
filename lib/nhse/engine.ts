@@ -178,7 +178,7 @@ export class NanoHabitatEngine {
       id,
       {
         "README.md": `# ${trimmed}\n\n${description.trim() || "A new nano-habitat."}\n`,
-        "src/main.js": `// Live module entry point. Assign module.exports.result to report a value.\nconsole.log("habitat online:", ${JSON.stringify(trimmed)});\n\nmodule.exports.result = { ok: true };\n`,
+        "src/main.js": `// Live module entry point. Assign module.exports.result to report a value.\nconsole.log("habitat online:", ${JSON.stringify(trimmed)});\n\nmodule.exports.result = { ok: true, message: "seeded habitat" };\n`,
       },
       "initialize habitat",
     )
