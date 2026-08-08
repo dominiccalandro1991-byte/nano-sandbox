@@ -23,8 +23,13 @@ export type StoreName = (typeof STORE)[keyof typeof STORE]
 
 const ALL_STORES: StoreName[] = [STORE.blobs, STORE.objects, STORE.habitats, STORE.predictor, STORE.meta]
 
+/**
+ * Storage: NOTE the added `persistent` flag so higher layers can detect a
+ * degraded/in-memory backend and surface warnings or force export.
+ */
 export interface Storage {
-  readonly backend: "indexeddb" | "memory"
+  readonly backend: "indexeddb" | "memory" | "localstorage"
+  readonly persistent: boolean
   get<T>(store: StoreName, key: string): Promise<T | undefined>
   put(store: StoreName, key: string, value: unknown): Promise<void>
   putMany(store: StoreName, entries: { key: string; value: unknown }[]): Promise<void>
@@ -32,6 +37,102 @@ export interface Storage {
   getAll<T>(store: StoreName): Promise<T[]>
   count(store: StoreName): Promise<number>
   clearAll(): Promise<void>
+}
+
+/**
+ * LocalStorage adapter — synchronous but wrapped to the Storage interface.
+ * Use only for small metadata and small payloads; localStorage has per-origin
+ * size limits and may throw on quota exceeded.
+ */
+function createLocalStorage(): Storage {
+  // probe use of localStorage to fail fast in hostile/opaque origins.
+  try {
+    if (typeof localStorage === "undefined") throw new Error("localStorage unavailable")
+    localStorage.setItem("__nhse_probe", "1")
+    localStorage.removeItem("__nhse_probe")
+  } catch {
+    throw new Error("localStorage unavailable")
+  }
+
+  const keyFor = (store: StoreName, key: string) => `${DB_NAME}:${store}:${key}`
+
+  return {
+    backend: "localstorage",
+    persistent: true,
+    async get<T>(_store, key) {
+      try {
+        const raw = localStorage.getItem(keyFor(_store, key))
+        return raw ? (JSON.parse(raw) as T) : undefined
+      } catch {
+        // localStorage can throw for quota/security — surface as unavailable to caller
+        throw new Error("localStorage read failed")
+      }
+    },
+    async put(_store, key, value) {
+      try {
+        localStorage.setItem(keyFor(_store, key), JSON.stringify(value))
+      } catch {
+        throw new Error("localStorage write failed")
+      }
+    },
+    async putMany(_store, entries) {
+      try {
+        for (const entry of entries) localStorage.setItem(keyFor(_store, entry.key), JSON.stringify(entry.value))
+      } catch {
+        throw new Error("localStorage writeMany failed")
+      }
+    },
+    async delete(_store, key) {
+      try {
+        localStorage.removeItem(keyFor(_store, key))
+      } catch {
+        // no-op
+      }
+    },
+    async getAll<T>(_store) {
+      const prefix = `${DB_NAME}:${_store}:`
+      const out: T[] = []
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (!k) continue
+          if (k.startsWith(prefix)) {
+            const raw = localStorage.getItem(k)
+            if (raw) out.push(JSON.parse(raw) as T)
+          }
+        }
+      } catch {
+        throw new Error("localStorage getAll failed")
+      }
+      return out
+    },
+    async count(_store) {
+      const prefix = `${DB_NAME}:${_store}:`
+      let c = 0
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && k.startsWith(prefix)) c++
+        }
+      } catch {
+        throw new Error("localStorage count failed")
+      }
+      return c
+    },
+    async clearAll() {
+      const prefix = `${DB_NAME}:`
+      const toRemove: string[] = []
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && k.startsWith(prefix)) toRemove.push(k)
+        }
+        for (const k of toRemove) localStorage.removeItem(k)
+      } catch {
+        throw new Error("localStorage clearAll failed")
+      }
+    },
+  }
 }
 
 function createMemoryStorage(): Storage {
@@ -46,6 +147,7 @@ function createMemoryStorage(): Storage {
   }
   return {
     backend: "memory",
+    persistent: false,
     async get<T>(store, key) {
       return table(store).get(key) as T | undefined
     },
@@ -135,6 +237,7 @@ function createIdbStorage(db: IDBDatabase): Storage {
 
   return {
     backend: "indexeddb",
+    persistent: true,
     get<T>(store, key) {
       return run(store, "readonly", (os) => requestToPromise(os.get(key) as IDBRequest<T | undefined>))
     },
@@ -171,11 +274,28 @@ function createIdbStorage(db: IDBDatabase): Storage {
 
 /** Resolve the strongest available container-local backend. Never throws. */
 export async function createStorage(): Promise<Storage> {
-  if (typeof indexedDB === "undefined") return createMemoryStorage()
+  // 1) Try localStorage first (fast, fail-fast). It's suitable for small
+  //    metadata and compact payloads and will fail immediately in opaque
+  //    contexts, which is preferable to hanging on IndexedDB.
   try {
-    const db = await openDatabase()
+    return createLocalStorage()
+  } catch {
+    // fall through to next option
+  }
+
+  // 2) Try IndexedDB but don't let it hang forever — use a short timeout.
+  if (typeof indexedDB === "undefined") {
+    return createMemoryStorage()
+  }
+  try {
+    const TIMEOUT_MS = 2000
+    const db = await Promise.race([
+      openDatabase(),
+      new Promise<IDBDatabase>((_, reject) => setTimeout(() => reject(new Error("IndexedDB open timed out")), TIMEOUT_MS)),
+    ])
     return createIdbStorage(db)
   } catch {
+    // 3) Last resort: in-memory store
     return createMemoryStorage()
   }
 }
