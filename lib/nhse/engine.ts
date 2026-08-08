@@ -21,6 +21,7 @@ import { adoptSnapshot, buildSnapshot, parseSnapshot, serializeSnapshot } from "
 import { STORE, createMemoryStorage, createStorage, type Storage } from "./storage"
 import { SEED_HABITATS } from "./seed"
 import { sha256Hex } from "./hash"
+import { clampNumber, sanitizeString, sanitizeUrl } from "./validation"
 import type {
   ArchitectureGraph,
   CapacityModel,
@@ -80,6 +81,16 @@ export class NanoHabitatEngine {
 
   get backend(): string {
     return this.storage.backend
+  }
+
+  /** Whether the storage backend is persistent (true) or ephemeral (false). */
+  get storagePersistent(): boolean {
+    return (this.storage as unknown as { persistent?: boolean }).persistent ?? true
+  }
+
+  /** Convenience: engine is degraded when storage is not persistent. */
+  get degraded(): boolean {
+    return !this.storagePersistent
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -155,8 +166,9 @@ export class NanoHabitatEngine {
   }
 
   async createHabitat(name: string, description = ""): Promise<HabitatRecord> {
-    const trimmed = name.trim()
+    const trimmed = sanitizeString(name).trim()
     if (trimmed.length === 0) throw new Error("A habitat needs a name.")
+    const desc = sanitizeString(description).trim()
     const existing = await this.listHabitats()
     if (existing.some((habitat) => habitat.name.toLowerCase() === trimmed.toLowerCase())) {
       throw new Error(`A habitat named "${trimmed}" already exists.`)
@@ -165,7 +177,7 @@ export class NanoHabitatEngine {
     const habitat: HabitatRecord = {
       id,
       name: trimmed,
-      description: description.trim(),
+      description: desc,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       head: null,
@@ -177,8 +189,8 @@ export class NanoHabitatEngine {
     await this.commitFiles(
       id,
       {
-        "README.md": `# ${trimmed}\n\n${description.trim() || "A new nano-habitat."}\n`,
-        "src/main.js": `// Live module entry point. Assign module.exports.result to report a value.\nconsole.log("habitat online:", ${JSON.stringify(trimmed)});\n\nmodule.exports.result = { ok: true, message: "seeded habitat" };\n`,
+        "README.md": `# ${trimmed}\n\n${desc || "A new nano-habitat."}\n`,
+        "src/main.js": `// Live module entry point. Assign module.exports.result to report a value.\nconsole.log("habitat online: ${trimmed}");\n\nmodule.exports.result = { ok: true, habitat: ${JSON.stringify(trimmed)} };\n`,
       },
       "initialize habitat",
     )
@@ -205,12 +217,14 @@ export class NanoHabitatEngine {
 
   async saveNote(habitatId: string, title: string, body: string, noteId?: string): Promise<void> {
     const habitat = await this.getHabitat(habitatId)
+    const noteTitle = sanitizeString(title).trim() || "Untitled note"
+    const noteBody = sanitizeString(body)
     const note: HabitatNote = {
       id: noteId ?? `${habitatId}-note-${Date.now().toString(36)}`,
-      title: title.trim() || "Untitled note",
-      body,
+      title: noteTitle,
+      body: noteBody,
       updatedAt: Date.now(),
-      embedding: embedText(`${title} ${body}`),
+      embedding: embedText(`${noteTitle} ${noteBody}`),
     }
     const notes = habitat.notes.filter((item) => item.id !== note.id)
     notes.unshift(note)
@@ -273,7 +287,7 @@ export class NanoHabitatEngine {
   }
 
   async writeFile(habitatId: string, path: string, text: string, message?: string): Promise<boolean> {
-    const cleanPath = path.trim().replace(/^\/+/, "")
+    const cleanPath = sanitizeString(path).trim().replace(/^\/+/, "")
     if (cleanPath.length === 0) throw new Error("A file needs a path.")
     const habitat = await this.getHabitat(habitatId)
     const tree = await this.currentTree(habitat)
