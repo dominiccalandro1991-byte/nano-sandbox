@@ -141,7 +141,7 @@ module.exports.result = {
     notes: [
       {
         title: "CFL bound",
-        body: "Explicit Euler on a 4-point stencil stays stable while diffusion * dt * 4 <= 1. The guard in physics.js throws instead of silently producing NaN, which keeps the runtime adapter self-healing.",
+        body: "Explicit Euler on a 4-point stencil stays stable while diffusion * dt * 4 <= 1. The guard in physics.js throws instead of silently producing NaN, which keeps the runtime adapter safe and prevents hard-to-debug drift.",
       },
       {
         title: "Why Float64Array",
@@ -298,9 +298,7 @@ module.exports.result = { score: runA.score, ticks: runA.ticks, deterministic: d
       "README.md": `# cahs-reference
 
 Executable documentation for the Content-Addressable Hierarchical Store.
-\`src/checksum.js\` is byte-identical to the copy in nano-lattice-sim, so the
-CAS stores exactly one physical copy and reports two logical references.
-`,
+` + "`src/checksum.js` is byte-identical to the copy in nano-lattice-sim, so the\nCAS stores exactly one physical copy and reports two logical references.\n",
       "src/checksum.js": CHECKSUM_MODULE,
       "src/merkle.js": `var checksum = require("./checksum").checksum;
 
