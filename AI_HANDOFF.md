@@ -143,6 +143,54 @@ Remote tab exactly like the first two validators.
   Session 1 note -- this build sandbox can't reach Google Fonts).
 - Nothing pushed to GitHub yet this session either.
 
+---
+
+## Session 3 -- reconcile fix/complete-nano-sandbox into main
+
+You surfaced a branch, `fix/complete-nano-sandbox` (4 commits), that I'd
+flagged but not yet looked at: a localStorage-first rework of `storage.ts`
+(matches your usual cross-project storage standard better than the
+original v0-generated async-IndexedDB-primary code), input sanitization
+(`validation.ts`, new file), an IndexedDB open timeout guard, and some seed
+content fixes -- overlapping the same two files (`engine.ts`, `storage.ts`)
+session 2 fixed type errors in.
+
+**Merged, not just fast-forwarded.** Two real conflicts in `storage.ts`
+(both branches touched the same method signatures) -- resolved by keeping
+session 2's explicit parameter types alongside the incoming
+`persistent: boolean` field on each backend.
+
+**Verification caught two real bugs in the incoming branch itself,** not
+just merge noise:
+- `seed.ts` had unescaped backticks inside an outer template literal that
+  broke the file's parse entirely -- cascaded into ~35 `tsc` errors across
+  the whole file. Restored the escaping (kept the branch's other content
+  changes: improved wording, a correctly-restructured concatenation fix
+  elsewhere in the same file).
+- The new `createLocalStorage()` had the exact same implicit-any parameter
+  pattern from session 2's `tsc` fixes (a method's own generic `<T>` breaks
+  contextual typing for its other params). Same fix applied.
+
+**Result:** `tsc --noEmit` clean, whole repo. `next build` reaches the same
+and only pre-existing failure point as every prior session (blocked
+`fonts.googleapis.com` in this build sandbox -- not a real defect).
+
+**Flagged, deliberately not changed:** `createStorage()` now tries
+localStorage *first* for every store, including `blobs`/`objects`/`habitats`
+-- but the localStorage adapter's own docstring says it's only suitable for
+small metadata. localStorage's quota (~5-10MB typical) is much smaller than
+IndexedDB's; larger habitat content that worked fine under the old
+IndexedDB-primary order could start hitting quota failures now. This is a
+design choice from the incoming branch, not something introduced by the
+merge -- not overridden unilaterally here. **Next session should either
+confirm this tradeoff is intentional, or change `createStorage()`'s order
+to try localStorage only for small/metadata stores and IndexedDB-first for
+`blobs`/`habitats`.**
+
+**Pushed:** `main` now includes both lines of work. `fix/complete-nano-sandbox`
+branch still exists on GitHub, now fully merged in -- safe to delete
+whenever, nothing on it is unmerged.
+
 ### For whoever (human or AI) picks this up next
 
 1. Re-run `tsc --noEmit` (root) and `pytest -v` (in `backend/`, venv
@@ -153,3 +201,5 @@ Remote tab exactly like the first two validators.
    example data.
 3. Deploy `backend/` somewhere with real internet access before wiring a
    production NHSE Remote tab to it; local `uvicorn` is dev-only.
+4. Decide the localStorage-vs-IndexedDB backend order question flagged
+   above in Session 3 before this sees real habitat content of any size.
