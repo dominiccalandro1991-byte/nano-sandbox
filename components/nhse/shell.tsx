@@ -1,19 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Boxes, FileCode2, Gauge, Network, Search, ShieldCheck, Terminal } from "lucide-react"
+import { Boxes, Cloud, FileCode2, Gauge, Network, Search, ShieldCheck, Terminal } from "lucide-react"
 import { EngineProvider, useEngine, useEngineQuery } from "./engine-context"
 import { CapacityView } from "./capacity-view"
 import { FilesView } from "./files-view"
 import { GraphView } from "./graph-view"
 import { HabitatsView } from "./habitats-view"
+import { RemoteView } from "./remote-view"
 import { RunView } from "./run-view"
 import { SearchView } from "./search-view"
 import { VerifyView } from "./verify-view"
 import { formatBytes, shortHash } from "@/lib/nhse/format"
 import { cn } from "@/lib/utils"
 
-type TabId = "habitats" | "files" | "graph" | "run" | "search" | "capacity" | "verify"
+type TabId = "habitats" | "files" | "graph" | "run" | "search" | "capacity" | "verify" | "remote"
 
 const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "habitats", label: "Habitats", icon: Boxes },
@@ -23,6 +24,7 @@ const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
   { id: "search", label: "Search", icon: Search },
   { id: "capacity", label: "Store", icon: Gauge },
   { id: "verify", label: "Verify", icon: ShieldCheck },
+  { id: "remote", label: "Remote", icon: Cloud },
 ]
 
 export function Shell() {
@@ -107,6 +109,8 @@ function ShellBody() {
           />
         ) : tab === "verify" ? (
           <VerifyView />
+        ) : tab === "remote" ? (
+          <RemoteView />
         ) : !activeId ? (
           <p className="py-16 text-center font-mono text-xs text-muted-foreground">
             select a habitat first

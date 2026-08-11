@@ -448,6 +448,10 @@ export class NanoHabitatEngine {
   async search(query: string, limit = 24): Promise<SearchHit[]> {
     const terms = query.toLowerCase().match(/[a-z0-9_.]+/g) ?? []
     if (terms.length === 0) return []
+    // terms.length > 0 is guaranteed above, but TS's indexed-access typing
+    // doesn't see that -- pin the first term to a real string once here
+    // instead of asserting it at every call site below.
+    const firstTerm: string = terms[0] ?? ""
     const queryEmbedding = embedText(query)
     const habitats = await this.listHabitats()
     const hits: SearchHit[] = []
@@ -471,7 +475,7 @@ export class NanoHabitatEngine {
         }
         score += cosineSimilarity(queryEmbedding, embedText(text)) * 3
         if (score <= 0) continue
-        const anchor = lowerText.indexOf(terms[0])
+        const anchor = lowerText.indexOf(firstTerm)
         const start = anchor === -1 ? 0 : Math.max(0, anchor - 40)
         hits.push({
           habitatId: habitat.id,

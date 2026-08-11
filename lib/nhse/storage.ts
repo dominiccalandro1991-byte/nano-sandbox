@@ -46,22 +46,22 @@ function createMemoryStorage(): Storage {
   }
   return {
     backend: "memory",
-    async get<T>(store, key) {
+    async get<T>(store: StoreName, key: string) {
       return table(store).get(key) as T | undefined
     },
-    async put(store, key, value) {
+    async put(store: StoreName, key: string, value: unknown) {
       table(store).set(key, value)
     },
-    async putMany(store, entries) {
+    async putMany(store: StoreName, entries: { key: string; value: unknown }[]) {
       for (const entry of entries) table(store).set(entry.key, entry.value)
     },
-    async delete(store, key) {
+    async delete(store: StoreName, key: string) {
       table(store).delete(key)
     },
-    async getAll<T>(store) {
+    async getAll<T>(store: StoreName) {
       return Array.from(table(store).values()) as T[]
     },
-    async count(store) {
+    async count(store: StoreName) {
       return table(store).size
     },
     async clearAll() {
@@ -135,28 +135,28 @@ function createIdbStorage(db: IDBDatabase): Storage {
 
   return {
     backend: "indexeddb",
-    get<T>(store, key) {
+    get<T>(store: StoreName, key: string) {
       return run(store, "readonly", (os) => requestToPromise(os.get(key) as IDBRequest<T | undefined>))
     },
-    put(store, key, value) {
+    put(store: StoreName, key: string, value: unknown) {
       return run(store, "readwrite", (os) => {
         os.put(value, key)
       })
     },
-    putMany(store, entries) {
+    putMany(store: StoreName, entries: { key: string; value: unknown }[]) {
       return run(store, "readwrite", (os) => {
         for (const entry of entries) os.put(entry.value, entry.key)
       })
     },
-    delete(store, key) {
+    delete(store: StoreName, key: string) {
       return run(store, "readwrite", (os) => {
         os.delete(key)
       })
     },
-    getAll<T>(store) {
+    getAll<T>(store: StoreName) {
       return run(store, "readonly", (os) => requestToPromise(os.getAll() as IDBRequest<T[]>))
     },
-    count(store) {
+    count(store: StoreName) {
       return run(store, "readonly", (os) => requestToPromise(os.count()))
     },
     async clearAll() {
