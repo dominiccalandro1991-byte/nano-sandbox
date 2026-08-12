@@ -7,6 +7,7 @@ list_validators() -- none of them know about individual validator classes.
 from __future__ import annotations
 
 from app.validators.base import Validator
+from app.validators.causal_fusion_validator import CausalFusionValidator
 from app.validators.cdem_validator import CDEMDiagnosisValidator
 from app.validators.corrosion_validator import CorrosionOxidationValidator
 from app.validators.dependency_collision import DependencyCollisionValidator
@@ -49,6 +50,7 @@ REGISTRY: dict[str, Validator] = {
         FluidViscosityValidator(),
         CorrosionOxidationValidator(),
         BarometricPressureValidator(),
+        CausalFusionValidator(),
     )
 }
 
