@@ -29,11 +29,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install
+        run: |
+          pnpm install
+          # Ensure platform-specific native bindings for Tailwind oxide are present
+          pnpm rebuild @tailwindcss/oxide || pnpm install --force
 
       - name: Build static site
         run: pnpm build
