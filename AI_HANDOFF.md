@@ -203,3 +203,45 @@ whenever, nothing on it is unmerged.
    production NHSE Remote tab to it; local `uvicorn` is dev-only.
 4. Decide the localStorage-vs-IndexedDB backend order question flagged
    above in Session 3 before this sees real habitat content of any size.
+
+---
+
+## Session 4 -- storage harden, 1-D validator guards, UI hubs, push
+
+**Storage (P0):** Strengthened `createStorage()` degraded path. BINARY_STORES
+(blobs/objects) are **never** routed to localStorage even when IndexedDB is
+unavailable; they fall back to the in-memory backend. Meta stores can still
+use localStorage. Hybrid `persistent` flag is now the AND of both backends.
+No merge-conflict markers were present on main; the hybrid already existed
+from prior work and was completed for the "never fall back" invariant.
+
+**Validators:** `physics-qc-matrix` and `geometry-tolerance` now return a
+clean `ValidationReport(error=...)` on 1-D / non-2-D inputs instead of
+raising `AxisError` / `IndexError`. ndim==2 guard added immediately after
+`np.asarray`.
+
+**Frontend:** `shell.tsx` reorganized into three labeled hubs:
+- Input / Upload (Habitats, Files, Search)
+- Engine Control (Run, Remote, Verify)
+- Results & Synthesis (Graph, Store)
+Title updated to "Ultimate Fix-It". Remote tab remains the control surface
+for all 20 registered diagnostic engines (including TCC/CDEM/RTE and the
+Continuity + Optical + Thermal + Chemical suites + causal-fusion).
+
+**Verification (re-run locally this session):**
+- `npx tsc --noEmit` → zero errors
+- `pytest tests/ -v` → 36/36 passed
+- 20-engine smoke with empty payload → 20/20 no unhandled exceptions
+
+**Pushed:** `b09f6bf` to `main`.
+
+**Residual / next:**
+- Live production URL: no Vercel project or deploy token in this environment.
+  Connect the GitHub repo to Vercel (or any Next host) and deploy `main` for
+  a public URL. Backend still requires a separate host (uvicorn / container)
+  for the Remote tab to talk to the 20 engines.
+- Domain data in `cdem_data.py` / `rte_data.py` remains illustrative (see
+  Session 2); do not treat voltage/repair numbers as real.
+- Next logical increment under Continuity Authorization: a Results & Synthesis
+  view that consumes causal-fusion + RTE output into a single repair-tree +
+  confidence dashboard, or source replacement of the placeholder domain tables.
