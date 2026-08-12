@@ -1,4 +1,3 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { IBM_Plex_Mono, Inter } from 'next/font/google'
 import './globals.css'
@@ -17,24 +16,20 @@ const code = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'NanoHabitat Sandbox Engine',
+  title: 'Ultimate Fix-It / NanoHabitat',
   description:
-    'On-device content-addressed habitat engine: deduplicating store, working-set governor, live module runtime, and a 60-case verification suite. Runs entirely inside iOS Safari.',
-  generator: 'v0.app',
-  applicationName: 'NanoHabitat',
+    'On-device multi-modal diagnostic engine: content-addressed store, working-set governor, live module runtime, 20 validation engines, and a 60-case verification suite. Runs entirely client-side.',
+  applicationName: 'Ultimate Fix-It',
   appleWebApp: {
     capable: true,
-    title: 'NanoHabitat',
+    title: 'Ultimate Fix-It',
     statusBarStyle: 'black-translucent',
   },
   formatDetection: { telephone: false },
-  manifest: '/manifest.webmanifest',
+  // Explicit basePath prefix so GitHub Pages (project site) resolves assets.
+  manifest: '/nano-sandbox/manifest.webmanifest',
   icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: '/icon-dark-32x32.png' },
-    ],
-    apple: '/apple-icon.png',
+    icon: [{ url: '/nano-sandbox/icon.svg', type: 'image/svg+xml' }],
   },
 }
 
@@ -55,10 +50,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`bg-background ${ui.variable} ${code.variable}`}>
-      <body className="antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   )
 }
