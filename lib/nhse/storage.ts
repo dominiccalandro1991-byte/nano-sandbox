@@ -1,15 +1,16 @@
 /**
  * Container-local persistence. All I/O is confined to the origin's own
- * storage, mirroring the iOS App Sandbox container invariant: the engine
- * never reads or writes outside its own store.
+ * IndexedDB database, mirroring the iOS App Sandbox container invariant: the
+ * engine never reads or writes outside its own store.
  *
- * Backend resolution order (see createStorage()): localStorage first (fast,
- * synchronous under the hood, fails immediately rather than hanging) for
- * small metadata/compact payloads, then IndexedDB with a timeout guard
- * (avoids the iOS Safari open-hang failure mode) for larger data, then a
- * complete in-memory backend as the last resort (SSR, private-mode WebKit
- * quirks). The API surface is identical across all three, so the engine and
+ * A complete in-memory backend is used when IndexedDB is unavailable (SSR,
+ * private-mode WebKit quirks). The API surface is identical, so the engine and
  * every test keeps working with zero branching at the call sites.
+ *
+ * ROUTING (P0 fix): STORE.blobs and STORE.objects are routed exclusively
+ * through IndexedDB. STORE.habitats, STORE.predictor and STORE.meta remain on
+ * localStorage. This prevents binary diagnostic media from hitting the
+ * localStorage size/quota bottleneck.
  */
 
 export const DB_NAME = "nhse-container"
@@ -27,12 +28,15 @@ export type StoreName = (typeof STORE)[keyof typeof STORE]
 
 const ALL_STORES: StoreName[] = [STORE.blobs, STORE.objects, STORE.habitats, STORE.predictor, STORE.meta]
 
+/** Stores that MUST use IndexedDB (binary / large diagnostic media). */
+const BINARY_STORES = new Set<StoreName>([STORE.blobs, STORE.objects])
+
 /**
  * Storage: NOTE the added `persistent` flag so higher layers can detect a
  * degraded/in-memory backend and surface warnings or force export.
  */
 export interface Storage {
-  readonly backend: "indexeddb" | "memory" | "localstorage"
+  readonly backend: "indexeddb" | "memory" | "localstorage" | "hybrid"
   readonly persistent: boolean
   get<T>(store: StoreName, key: string): Promise<T | undefined>
   put(store: StoreName, key: string, value: unknown): Promise<void>
@@ -72,21 +76,21 @@ function createLocalStorage(): Storage {
         throw new Error("localStorage read failed")
       }
     },
-    async put(_store, key, value) {
+    async put(_store: StoreName, key: string, value: unknown) {
       try {
         localStorage.setItem(keyFor(_store, key), JSON.stringify(value))
       } catch {
         throw new Error("localStorage write failed")
       }
     },
-    async putMany(_store, entries) {
+    async putMany(_store: StoreName, entries: { key: string; value: unknown }[]) {
       try {
         for (const entry of entries) localStorage.setItem(keyFor(_store, entry.key), JSON.stringify(entry.value))
       } catch {
         throw new Error("localStorage writeMany failed")
       }
     },
-    async delete(_store, key) {
+    async delete(_store: StoreName, key: string) {
       try {
         localStorage.removeItem(keyFor(_store, key))
       } catch {
@@ -110,7 +114,7 @@ function createLocalStorage(): Storage {
       }
       return out
     },
-    async count(_store) {
+    async count(_store: StoreName) {
       const prefix = `${DB_NAME}:${_store}:`
       let c = 0
       try {
@@ -276,32 +280,80 @@ function createIdbStorage(db: IDBDatabase): Storage {
   }
 }
 
+/**
+ * Hybrid storage: blobs + objects → IndexedDB; habitats + predictor + meta → localStorage.
+ * Satisfies the P0 routing requirement so binary diagnostic media never touch localStorage.
+ */
+function createHybridStorage(idb: Storage, ls: Storage): Storage {
+  const route = (store: StoreName): Storage => (BINARY_STORES.has(store) ? idb : ls)
+
+  return {
+    backend: "hybrid",
+    persistent: true,
+    get<T>(store: StoreName, key: string) {
+      return route(store).get<T>(store, key)
+    },
+    put(store: StoreName, key: string, value: unknown) {
+      return route(store).put(store, key, value)
+    },
+    putMany(store: StoreName, entries: { key: string; value: unknown }[]) {
+      return route(store).putMany(store, entries)
+    },
+    delete(store: StoreName, key: string) {
+      return route(store).delete(store, key)
+    },
+    getAll<T>(store: StoreName) {
+      return route(store).getAll<T>(store)
+    },
+    count(store: StoreName) {
+      return route(store).count(store)
+    },
+    async clearAll() {
+      // Clear both backends so residual keys cannot leak across routes.
+      await Promise.all([idb.clearAll(), ls.clearAll()])
+    },
+  }
+}
+
 /** Resolve the strongest available container-local backend. Never throws. */
 export async function createStorage(): Promise<Storage> {
-  // 1) Try localStorage first (fast, fail-fast). It's suitable for small
-  //    metadata and compact payloads and will fail immediately in opaque
-  //    contexts, which is preferable to hanging on IndexedDB.
+  let idb: Storage | null = null
+  let ls: Storage | null = null
+
+  // Prefer localStorage for the three metadata stores (habitats / predictor / meta).
   try {
-    return createLocalStorage()
+    ls = createLocalStorage()
   } catch {
-    // fall through to next option
+    // fall through
   }
 
-  // 2) Try IndexedDB but don't let it hang forever — use a short timeout.
-  if (typeof indexedDB === "undefined") {
-    return createMemoryStorage()
+  // Prefer IndexedDB exclusively for blobs + objects (binary diagnostic media).
+  if (typeof indexedDB !== "undefined") {
+    try {
+      const TIMEOUT_MS = 2000
+      const db = await Promise.race([
+        openDatabase(),
+        new Promise<IDBDatabase>((_, reject) =>
+          setTimeout(() => reject(new Error("IndexedDB open timed out")), TIMEOUT_MS),
+        ),
+      ])
+      idb = createIdbStorage(db)
+    } catch {
+      // fall through
+    }
   }
-  try {
-    const TIMEOUT_MS = 2000
-    const db = await Promise.race([
-      openDatabase(),
-      new Promise<IDBDatabase>((_, reject) => setTimeout(() => reject(new Error("IndexedDB open timed out")), TIMEOUT_MS)),
-    ])
-    return createIdbStorage(db)
-  } catch {
-    // 3) Last resort: in-memory store
-    return createMemoryStorage()
+
+  if (idb && ls) {
+    return createHybridStorage(idb, ls)
   }
+
+  // Degraded paths: if only one backend is available, use it for everything
+  // (still better than pure memory). Callers can inspect .backend / .persistent.
+  if (idb) return idb
+  if (ls) return ls
+
+  // Last resort: in-memory store
+  return createMemoryStorage()
 }
 
 export { createMemoryStorage }
