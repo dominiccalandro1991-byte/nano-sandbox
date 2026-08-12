@@ -9,16 +9,20 @@ from __future__ import annotations
 from app.validators.base import Validator
 from app.validators.cdem_validator import CDEMDiagnosisValidator
 from app.validators.dependency_collision import DependencyCollisionValidator
+from app.validators.geometry_tolerance_validator import GeometryToleranceValidator
 from app.validators.market_absence_indexer import MarketAbsenceIndexerValidator
 from app.validators.multi_agent_interaction import MultiAgentInteractionValidator
 from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
 from app.validators.rte_validator import RTERepairPlanValidator
 from app.validators.soft_body_physics import SoftBodyPhysicsValidator
+from app.validators.solder_bridge_validator import SolderBridgeInspectionValidator
 from app.validators.tcc_validator import TCCAnomalyValidator
 from app.validators.thermal_gradient_validator import ThermalGradientValidator
 from app.validators.thermal_validator import ThermalDissipationValidator
 from app.validators.thermo_mechanical_validator import ThermoMechanicalStressValidator
 from app.validators.tier_drift_validator import TierDriftValidator
+from app.validators.uv_luminescence_validator import UVLuminescenceValidator
+from app.validators.vision_surface_validator import VisionSurfaceDefectsValidator
 
 REGISTRY: dict[str, Validator] = {
     v.id: v
@@ -35,6 +39,10 @@ REGISTRY: dict[str, Validator] = {
         ThermalDissipationValidator(),
         ThermalGradientValidator(),
         ThermoMechanicalStressValidator(),
+        VisionSurfaceDefectsValidator(),
+        SolderBridgeInspectionValidator(),
+        GeometryToleranceValidator(),
+        UVLuminescenceValidator(),
     )
 }
 
