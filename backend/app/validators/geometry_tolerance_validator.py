@@ -52,6 +52,14 @@ class GeometryToleranceValidator:
             B = np.asarray(baseline, dtype=float)
         except (ValueError, TypeError) as e:
             return ValidationReport(passed=False, error=f"could not coerce coordinates: {e}")
+
+        # ndim check: require 2-D. 1-D lists produce IndexError on shape[1].
+        if M.ndim != 2 or B.ndim != 2:
+            return ValidationReport(
+                passed=False,
+                error=f"measured and baseline must be 2-D arrays of shape (N, D); got measured.ndim={M.ndim}, baseline.ndim={B.ndim}",
+            )
+
         if M.shape != B.shape:
             return ValidationReport(passed=False, error=f"shape mismatch: measured {M.shape} vs baseline {B.shape}.")
         if not np.all(np.isfinite(M)) or not np.all(np.isfinite(B)):

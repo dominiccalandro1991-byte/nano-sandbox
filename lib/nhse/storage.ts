@@ -281,15 +281,18 @@ function createIdbStorage(db: IDBDatabase): Storage {
 }
 
 /**
- * Hybrid storage: blobs + objects → IndexedDB; habitats + predictor + meta → localStorage.
- * Satisfies the P0 routing requirement so binary diagnostic media never touch localStorage.
+ * Hybrid storage: blobs + objects → binaryBackend (IndexedDB or memory);
+ * habitats + predictor + meta → metaBackend (localStorage or memory).
+ * Satisfies the P0 routing requirement so binary diagnostic media NEVER
+ * touch localStorage, even in degraded states (prevents quota crashes).
  */
-function createHybridStorage(idb: Storage, ls: Storage): Storage {
-  const route = (store: StoreName): Storage => (BINARY_STORES.has(store) ? idb : ls)
+function createHybridStorage(binaryBackend: Storage, metaBackend: Storage): Storage {
+  const route = (store: StoreName): Storage => (BINARY_STORES.has(store) ? binaryBackend : metaBackend)
+  const bothPersistent = binaryBackend.persistent && metaBackend.persistent
 
   return {
     backend: "hybrid",
-    persistent: true,
+    persistent: bothPersistent,
     get<T>(store: StoreName, key: string) {
       return route(store).get<T>(store, key)
     },
@@ -310,7 +313,7 @@ function createHybridStorage(idb: Storage, ls: Storage): Storage {
     },
     async clearAll() {
       // Clear both backends so residual keys cannot leak across routes.
-      await Promise.all([idb.clearAll(), ls.clearAll()])
+      await Promise.all([binaryBackend.clearAll(), metaBackend.clearAll()])
     },
   }
 }
@@ -347,12 +350,18 @@ export async function createStorage(): Promise<Storage> {
     return createHybridStorage(idb, ls)
   }
 
-  // Degraded paths: if only one backend is available, use it for everything
-  // (still better than pure memory). Callers can inspect .backend / .persistent.
-  if (idb) return idb
-  if (ls) return ls
+  // Degraded paths: NEVER route BINARY_STORES to localStorage.
+  // If IndexedDB is unavailable, binaries fall back to in-memory only.
+  if (idb) {
+    // IDB alone can hold everything (including meta).
+    return idb
+  }
+  if (ls) {
+    // localStorage present but no IDB → hybrid(memory for binary, ls for meta)
+    return createHybridStorage(createMemoryStorage(), ls)
+  }
 
-  // Last resort: in-memory store
+  // Last resort: pure in-memory store
   return createMemoryStorage()
 }
 

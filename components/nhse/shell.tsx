@@ -16,16 +16,41 @@ import { cn } from "@/lib/utils"
 
 type TabId = "habitats" | "files" | "graph" | "run" | "search" | "capacity" | "verify" | "remote"
 
-const TABS: { id: TabId; label: string; icon: typeof Boxes }[] = [
-  { id: "habitats", label: "Habitats", icon: Boxes },
-  { id: "files", label: "Files", icon: FileCode2 },
-  { id: "graph", label: "Graph", icon: Network },
-  { id: "run", label: "Run", icon: Terminal },
-  { id: "search", label: "Search", icon: Search },
-  { id: "capacity", label: "Store", icon: Gauge },
-  { id: "verify", label: "Verify", icon: ShieldCheck },
-  { id: "remote", label: "Remote", icon: Cloud },
+/** Three-hub navigation: Input / Upload, Engine Control, Results & Synthesis. */
+const HUBS: {
+  id: string
+  label: string
+  tabs: { id: TabId; label: string; icon: typeof Boxes }[]
+}[] = [
+  {
+    id: "input",
+    label: "Input / Upload",
+    tabs: [
+      { id: "habitats", label: "Habitats", icon: Boxes },
+      { id: "files", label: "Files", icon: FileCode2 },
+      { id: "search", label: "Search", icon: Search },
+    ],
+  },
+  {
+    id: "engines",
+    label: "Engine Control",
+    tabs: [
+      { id: "run", label: "Run", icon: Terminal },
+      { id: "remote", label: "Remote", icon: Cloud },
+      { id: "verify", label: "Verify", icon: ShieldCheck },
+    ],
+  },
+  {
+    id: "results",
+    label: "Results & Synthesis",
+    tabs: [
+      { id: "graph", label: "Graph", icon: Network },
+      { id: "capacity", label: "Store", icon: Gauge },
+    ],
+  },
 ]
+
+const TABS = HUBS.flatMap((h) => h.tabs)
 
 export function Shell() {
   return (
@@ -71,7 +96,7 @@ function ShellBody() {
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 flex-col">
             <h1 className="font-mono text-[13px] font-semibold tracking-tight">
-              NanoHabitat<span className="text-primary"> / </span>
+              Ultimate Fix-It<span className="text-primary"> / </span>
               <span className="text-muted-foreground">
                 {active ? active.name : engine ? "no habitat" : "booting"}
               </span>
@@ -129,29 +154,38 @@ function ShellBody() {
       <nav
         className="sticky bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-md"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        aria-label="Engine sections"
+        aria-label="Diagnostic hubs"
       >
-        <ul className="scroll-panel mx-auto flex w-full max-w-2xl gap-1 overflow-x-auto px-2 py-1.5">
-          {TABS.map(({ id, label, icon: Icon }) => {
-            const selected = tab === id
-            return (
-              <li key={id} className="flex-1">
-                <button
-                  type="button"
-                  onClick={() => setTab(id)}
-                  aria-current={selected ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-12 w-full min-w-14 flex-col items-center justify-center gap-1 rounded-md transition-colors",
-                    selected ? "bg-primary/10 text-primary" : "text-muted-foreground active:bg-accent",
-                  )}
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  <span className="font-mono text-[9px] uppercase tracking-[0.08em]">{label}</span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="mx-auto w-full max-w-2xl px-2 py-1.5 space-y-1">
+          {HUBS.map((hub) => (
+            <div key={hub.id}>
+              <p className="px-1 pb-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/60">
+                {hub.label}
+              </p>
+              <ul className="scroll-panel flex gap-1 overflow-x-auto">
+                {hub.tabs.map(({ id, label, icon: Icon }) => {
+                  const selected = tab === id
+                  return (
+                    <li key={id} className="flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setTab(id)}
+                        aria-current={selected ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors",
+                          selected ? "bg-primary/10 text-primary" : "text-muted-foreground active:bg-accent",
+                        )}
+                      >
+                        <Icon className="size-3.5" aria-hidden="true" />
+                        <span className="font-mono text-[8px] uppercase tracking-[0.06em]">{label}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
     </div>
   )

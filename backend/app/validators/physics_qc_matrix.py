@@ -53,6 +53,14 @@ class PhysicsQCMatrixValidator:
         except (ValueError, TypeError) as e:
             return ValidationReport(passed=False, error=f"could not coerce states to float arrays: {e}")
 
+        # ndim check: require 2-D (M entities × D features). 1-D or scalar inputs
+        # produce AxisError / IndexError on axis=1; handle gracefully.
+        if sim_arr.ndim != 2 or ideal_arr.ndim != 2:
+            return ValidationReport(
+                passed=False,
+                error=f"states must be 2-D arrays of shape (M, D); got sim.ndim={sim_arr.ndim}, ideal.ndim={ideal_arr.ndim}",
+            )
+
         if sim_arr.shape != ideal_arr.shape:
             return ValidationReport(passed=False, error=f"shape mismatch: sim {sim_arr.shape} vs ideal {ideal_arr.shape}")
 
