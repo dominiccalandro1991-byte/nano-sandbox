@@ -15,6 +15,9 @@ from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
 from app.validators.rte_validator import RTERepairPlanValidator
 from app.validators.soft_body_physics import SoftBodyPhysicsValidator
 from app.validators.tcc_validator import TCCAnomalyValidator
+from app.validators.thermal_gradient_validator import ThermalGradientValidator
+from app.validators.thermal_validator import ThermalDissipationValidator
+from app.validators.thermo_mechanical_validator import ThermoMechanicalStressValidator
 from app.validators.tier_drift_validator import TierDriftValidator
 
 REGISTRY: dict[str, Validator] = {
@@ -29,6 +32,9 @@ REGISTRY: dict[str, Validator] = {
         PhysicsQCMatrixValidator(),
         DependencyCollisionValidator(),
         MarketAbsenceIndexerValidator(),
+        ThermalDissipationValidator(),
+        ThermalGradientValidator(),
+        ThermoMechanicalStressValidator(),
     )
 }
 
