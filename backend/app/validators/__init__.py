@@ -8,11 +8,14 @@ from __future__ import annotations
 
 from app.validators.base import Validator
 from app.validators.cdem_validator import CDEMDiagnosisValidator
+from app.validators.corrosion_validator import CorrosionOxidationValidator
 from app.validators.dependency_collision import DependencyCollisionValidator
+from app.validators.fluid_viscosity_validator import FluidViscosityValidator
 from app.validators.geometry_tolerance_validator import GeometryToleranceValidator
 from app.validators.market_absence_indexer import MarketAbsenceIndexerValidator
 from app.validators.multi_agent_interaction import MultiAgentInteractionValidator
 from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
+from app.validators.pressure_validator import BarometricPressureValidator
 from app.validators.rte_validator import RTERepairPlanValidator
 from app.validators.soft_body_physics import SoftBodyPhysicsValidator
 from app.validators.solder_bridge_validator import SolderBridgeInspectionValidator
@@ -43,6 +46,9 @@ REGISTRY: dict[str, Validator] = {
         SolderBridgeInspectionValidator(),
         GeometryToleranceValidator(),
         UVLuminescenceValidator(),
+        FluidViscosityValidator(),
+        CorrosionOxidationValidator(),
+        BarometricPressureValidator(),
     )
 }
 
