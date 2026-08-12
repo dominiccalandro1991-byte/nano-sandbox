@@ -8,10 +8,14 @@ from __future__ import annotations
 
 from app.validators.base import Validator
 from app.validators.cdem_validator import CDEMDiagnosisValidator
+from app.validators.dependency_collision import DependencyCollisionValidator
+from app.validators.market_absence_indexer import MarketAbsenceIndexerValidator
 from app.validators.multi_agent_interaction import MultiAgentInteractionValidator
+from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
 from app.validators.rte_validator import RTERepairPlanValidator
 from app.validators.soft_body_physics import SoftBodyPhysicsValidator
 from app.validators.tcc_validator import TCCAnomalyValidator
+from app.validators.tier_drift_validator import TierDriftValidator
 
 REGISTRY: dict[str, Validator] = {
     v.id: v
@@ -21,6 +25,10 @@ REGISTRY: dict[str, Validator] = {
         TCCAnomalyValidator(),
         CDEMDiagnosisValidator(),
         RTERepairPlanValidator(),
+        TierDriftValidator(),
+        PhysicsQCMatrixValidator(),
+        DependencyCollisionValidator(),
+        MarketAbsenceIndexerValidator(),
     )
 }
 
