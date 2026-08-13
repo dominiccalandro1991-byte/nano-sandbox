@@ -1,0 +1,14 @@
+{
+  "name": "Ultimate Fix-It / NanoHabitat",
+  "short_name": "Fix-It",
+  "description": "On-device multi-modal diagnostic engine with content-addressed store and 20 validation engines.",
+  "start_url": "/nano-sandbox/",
+  "scope": "/nano-sandbox/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1d22",
+  "theme_color": "#1b1d22",
+  "icons": [
+    { "src": "/nano-sandbox/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

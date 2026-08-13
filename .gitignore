@@ -5,7 +5,7 @@
 
 # next.js
 /.next/
-/out/
+# /out/  # committed for GitHub Pages static deploy reliability
 
 # production
 /build
