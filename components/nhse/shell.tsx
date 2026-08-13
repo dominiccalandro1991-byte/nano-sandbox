@@ -89,10 +89,16 @@ function OverviewPanel() {
   return (
     <div className="flex flex-col gap-3 py-1">
       <section className="rounded-lg border border-border bg-card p-3">
-        <h2 className="font-mono text-[12px] font-semibold tracking-tight">Ultimate Fix-It / NHSE</h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="font-mono text-[12px] font-semibold tracking-tight">Ultimate Fix-It / NHSE + NASE</h2>
+          <span className="shrink-0 rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] text-primary">
+            BUILD NASE-UI-20260812
+          </span>
+        </div>
         <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
           This is a <span className="text-foreground">content-addressed sandbox</span> for project
-          habitats plus a suite of <span className="text-foreground">diagnostic engines</span>.
+          habitats plus a suite of <span className="text-foreground">diagnostic engines</span> and the
+          <span className="text-foreground"> NanoAegis (NASE)</span> security formal core.
           Everything below is client-side storage (IndexedDB for binaries, localStorage for small
           metadata) unless you point Remote at a backend.
         </p>
