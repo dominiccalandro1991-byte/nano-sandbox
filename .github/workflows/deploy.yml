@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,9 +35,16 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Use official registry with long timeouts (Actions proxy was timing out on native binaries)
+          pnpm config set registry https://registry.npmjs.org
+          pnpm config set network-timeout 600000
+          pnpm config set fetch-retries 5
+          pnpm config set fetch-retry-mintimeout 20000
+          pnpm config set fetch-retry-maxtimeout 120000
           pnpm config set shamefully-hoist true
           pnpm install --no-frozen-lockfile
-          # Force platform-native binding for Tailwind oxide (prevents hang / missing binding)
+          # Ensure the Linux x64 oxide binding is present
+          pnpm add -D @tailwindcss/oxide-linux-x64-gnu@4.3.3 || pnpm install @tailwindcss/oxide-linux-x64-gnu@4.3.3 || true
           pnpm rebuild @tailwindcss/oxide || true
 
       - name: Build static site
