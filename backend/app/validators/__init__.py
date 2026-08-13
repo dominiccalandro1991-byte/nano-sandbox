@@ -15,6 +15,7 @@ from app.validators.fluid_viscosity_validator import FluidViscosityValidator
 from app.validators.geometry_tolerance_validator import GeometryToleranceValidator
 from app.validators.market_absence_indexer import MarketAbsenceIndexerValidator
 from app.validators.multi_agent_interaction import MultiAgentInteractionValidator
+from app.validators.nase_aegis_validator import NaseAegisValidator
 from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
 from app.validators.pressure_validator import BarometricPressureValidator
 from app.validators.rte_validator import RTERepairPlanValidator
@@ -51,6 +52,7 @@ REGISTRY: dict[str, Validator] = {
         CorrosionOxidationValidator(),
         BarometricPressureValidator(),
         CausalFusionValidator(),
+        NaseAegisValidator(),
     )
 }
 

@@ -245,3 +245,25 @@ Continuity + Optical + Thermal + Chemical suites + causal-fusion).
 - Next logical increment under Continuity Authorization: a Results & Synthesis
   view that consumes causal-fusion + RTE output into a single repair-tree +
   confidence dashboard, or source replacement of the placeholder domain tables.
+
+---
+
+## Session 5 — NASE formal core + navigable UI
+
+**NASE (NanoAegis Autonomous Security Engine)** formal core landed under
+`backend/app/nase/`:
+- Five agent roles + Governing-Orchestrator (`agents.py`)
+- Attestation-freshness invariant Δt default 30s (`invariants.py`)
+- Tool-Gateway least-privilege (`gateway.py`)
+- Policy Governor SSOT (`policy.py`)
+- Registry validator `nase-aegis` (`validators/nase_aegis_validator.py`)
+
+Evidence: pure predicates Partially Verified; Secure Enclave / Core ML Missing
+at this Python layer (callers supply attestation timestamps).
+
+**UI:** Shell redesigned with self-describing hubs (Start here / Diagnostic
+engines / Store & structure), per-tab “what this does” subtitle, Overview
+panel, and Security (NASE) view explaining each agent in plain language.
+
+**Verified:** `tsc --noEmit` clean; `pytest` **48/48** (36 prior + 12 NASE).
+Static `out/` rebuilt for GitHub Pages.
