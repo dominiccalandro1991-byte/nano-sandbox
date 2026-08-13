@@ -62,10 +62,12 @@ self.onmessage = function (event) {
   }
 
   function load(path) {
-    if (cache[path]) { return cache[path].exports; }
+    // Cycle check MUST run before cache hit. Otherwise a.js→b.js→a.js returns the
+    // in-progress empty exports object and the run falsely succeeds (error: null).
     if (stack.indexOf(path) !== -1) {
       throw new Error("Circular require detected: " + stack.concat([path]).join(" -> "));
     }
+    if (cache[path]) { return cache[path].exports; }
     var moduleObject = { exports: {}, id: path };
     cache[path] = moduleObject;
     stack.push(path);
