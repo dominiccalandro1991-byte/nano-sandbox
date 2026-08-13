@@ -21,25 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "pnpm"
+          cache: "npm"
 
       - name: Install dependencies
-        run: |
-          pnpm install
-          # Ensure platform-specific native bindings for Tailwind oxide are present
-          pnpm rebuild @tailwindcss/oxide || pnpm install --force
+        run: npm ci
 
       - name: Build static site
-        run: pnpm build
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
