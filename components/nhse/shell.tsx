@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Terminal,
   Info,
+  MessageSquare,
 } from "lucide-react"
 import { EngineProvider, useEngine, useEngineQuery } from "./engine-context"
 import { CapacityView } from "./capacity-view"
@@ -23,6 +24,7 @@ import { RunView } from "./run-view"
 import { SearchView } from "./search-view"
 import { VerifyView } from "./verify-view"
 import { SecurityView } from "./security-view"
+import { ChatView } from "./chat-view"
 import { formatBytes, shortHash } from "@/lib/nhse/format"
 import { cn } from "@/lib/utils"
 
@@ -37,6 +39,7 @@ type TabId =
   | "verify"
   | "remote"
   | "security"
+  | "chat"
 
 type HubDef = {
   id: string
@@ -64,12 +67,13 @@ const HUBS: HubDef[] = [
   {
     id: "engines",
     label: "Diagnostic engines",
-    blurb: "Run the 24 validators (physics, repair, NASE…)",
+    blurb: "Run the 25 validators (physics, repair, NASE…)",
     tabs: [
       { id: "run", label: "Local run", does: "Execute modules inside the selected habitat", icon: Terminal },
       { id: "remote", label: "Remote jobs", does: "Submit JSON jobs to the backend engine API", icon: Cloud },
       { id: "verify", label: "Self-test", does: "Built-in 60-case NHSE verification suite", icon: ShieldCheck },
       { id: "security", label: "NASE", does: "Security agents, attestation, Tool-Gateway", icon: Shield },
+      { id: "chat", label: "NNACC", does: "Native chat core · tool routing · habitat memory", icon: MessageSquare },
     ],
   },
   {
@@ -117,7 +121,7 @@ function OverviewPanel() {
             are the source of truth.
           </li>
           <li>
-            <span className="text-foreground">Remote jobs</span> — run any of the 24 engines
+            <span className="text-foreground">Remote jobs</span> — run any of the 25 engines
             (thermal, geometry, repair planning, <span className="font-mono">nase-aegis</span>, …)
             by pasting a JSON payload.
           </li>
@@ -245,6 +249,12 @@ function ShellBody() {
           <RemoteView />
         ) : tab === "security" ? (
           <SecurityView />
+        ) : tab === "chat" && activeId ? (
+          <ChatView habitatId={activeId} />
+        ) : tab === "chat" ? (
+          <p className="py-16 text-center font-mono text-xs text-muted-foreground">
+            select a habitat first (Start here → Habitats) to ground NNACC
+          </p>
         ) : !activeId ? (
           <p className="py-16 text-center font-mono text-xs text-muted-foreground">
             select a habitat first (Start here → Habitats)
