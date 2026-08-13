@@ -105,7 +105,10 @@ self.onmessage = function (event) {
     }
     self.postMessage({ ok: true, logs: __logs, error: null, result: result, durationMs: Date.now() - started });
   } catch (error) {
-    var message = error && error.stack ? String(error.stack) : String(error);
+    // Prefer message so host-side containment checks (/not found/, /circular/) work
+    // across browsers; append stack when present for diagnostics.
+    var message = error && error.message ? String(error.message) : String(error);
+    if (error && error.stack) { message = message + "\n" + String(error.stack); }
     self.postMessage({ ok: false, logs: __logs, error: message, result: null, durationMs: Date.now() - started });
   }
 };

@@ -50,7 +50,12 @@ export class WorkingSetGovernor {
   readonly reliefTarget: number
 
   constructor(options: GovernorOptions = {}) {
-    this.budgetBytes = Math.max(64 * 1024, options.budgetBytes ?? 6 * 1024 * 1024)
+    // Explicit budgets (including tight self-test budgets) must be honored.
+    // Only the default path gets a production-scale floor.
+    this.budgetBytes =
+      options.budgetBytes !== undefined
+        ? Math.max(256, options.budgetBytes)
+        : 6 * 1024 * 1024
     this.highWaterMark = options.highWaterMark ?? 0.85
     this.reliefTarget = options.reliefTarget ?? 0.6
   }

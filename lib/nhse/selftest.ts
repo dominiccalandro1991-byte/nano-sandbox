@@ -279,10 +279,11 @@ const CASES: Case[] = [
       const predictor = new AccessPredictor(createMemoryStorage(), "habitat")
       await predictor.load()
       const sequence = ["src/main.js", "src/physics.js", "src/lattice.js"]
+      // Same order as NanoHabitatEngine.readThrough: record access, then predict next.
       for (let round = 0; round < 6; round++) {
         for (const path of sequence) {
-          predictor.predict(path)
           predictor.record(path)
+          predictor.predict(path)
         }
       }
       const prediction = predictor.predict("src/main.js")
