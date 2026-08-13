@@ -17,6 +17,8 @@ from app.validators.market_absence_indexer import MarketAbsenceIndexerValidator
 from app.validators.multi_agent_interaction import MultiAgentInteractionValidator
 from app.validators.nase_aegis_validator import NaseAegisValidator
 from app.validators.nadre_monitor_validator import NadreMonitorValidator
+from app.validators.usse_validator import USSEValidator
+from app.validators.oiav_validator import OIAVValidator
 from app.validators.physics_qc_matrix import PhysicsQCMatrixValidator
 from app.validators.pressure_validator import BarometricPressureValidator
 from app.validators.rte_validator import RTERepairPlanValidator
@@ -55,6 +57,8 @@ REGISTRY: dict[str, Validator] = {
         CausalFusionValidator(),
         NaseAegisValidator(),
         NadreMonitorValidator(),
+        USSEValidator(),
+        OIAVValidator(),
     )
 }
 

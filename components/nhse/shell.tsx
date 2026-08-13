@@ -64,7 +64,7 @@ const HUBS: HubDef[] = [
   {
     id: "engines",
     label: "Diagnostic engines",
-    blurb: "Run the 21 validators (physics, repair, NASE…)",
+    blurb: "Run the 24 validators (physics, repair, NASE…)",
     tabs: [
       { id: "run", label: "Local run", does: "Execute modules inside the selected habitat", icon: Terminal },
       { id: "remote", label: "Remote jobs", does: "Submit JSON jobs to the backend engine API", icon: Cloud },
@@ -117,7 +117,7 @@ function OverviewPanel() {
             are the source of truth.
           </li>
           <li>
-            <span className="text-foreground">Remote jobs</span> — run any of the 21 engines
+            <span className="text-foreground">Remote jobs</span> — run any of the 24 engines
             (thermal, geometry, repair planning, <span className="font-mono">nase-aegis</span>, …)
             by pasting a JSON payload.
           </li>
