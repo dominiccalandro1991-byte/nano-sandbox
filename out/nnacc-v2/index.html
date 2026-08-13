@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Ultimate Fix-It · NNACC V2 + Creative Studio</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=nnacc-v2.4" />
 </head>
 <body>
   <div id="app" class="app">
@@ -17,6 +17,9 @@
       <div class="sidebar-actions">
         <button id="new-chat-btn" class="new-chat-btn" type="button" title="Start a new chat thread">
           <span>+ New Chat</span>
+        </button>
+        <button id="run-self-test-btn" class="self-test-btn" type="button" title="Run full system diagnostic & security self-test">
+          <span>🧪 RUN SELF-TEST</span>
         </button>
       </div>
       <nav class="sidebar-nav">
@@ -67,9 +70,54 @@
   </div>
   <div id="settings-modal" class="modal" hidden><div class="modal-card"><header><h2>Settings & System Config</h2><button id="close-settings" class="icon-btn">✕</button></header><section><label>NASE Δt (seconds)<input type="number" id="setting-delta" value="30" min="5" max="120" /></label><label>Backend Remote URL (optional)<input type="url" id="setting-remote" placeholder="https://your-backend.example/api" /></label><label class="checkbox"><input type="checkbox" id="setting-auto-usse" checked /> Auto-detect USSE candidates from dropped files</label><p class="muted small">All mutations still require a fresh attestation timestamp.</p></section><footer><button id="save-settings" class="primary-btn">Save</button></footer></div></div>
   <div id="file-preview-modal" class="modal" hidden><div class="modal-card modal-wide"><header><h2 id="file-preview-title">File preview</h2><button id="close-file-preview" class="icon-btn">✕</button></header><pre id="file-preview-body" class="code-block file-preview-body"></pre><footer class="file-preview-footer"><button id="file-preview-to-vault" class="ghost-btn">Open in File Vault</button><button id="file-preview-copy" class="primary-btn">Copy text</button></footer></div></div>
-  <script src="js/usse-bridge.js"></script>
-  <script src="js/studio-engine.js"></script>
-  <script src="js/session-engine.js"></script>
-  <script src="js/ui-controller.js"></script>
+
+  <div id="diagnostic-modal" class="modal" hidden>
+    <div class="modal-card modal-wide diagnostic-card">
+      <header>
+        <h2>System Diagnostic & Security Report</h2>
+        <button id="close-diagnostic" class="icon-btn" aria-label="Close">✕</button>
+      </header>
+      <div class="diagnostic-summary">
+        <div class="diag-score">
+          <span class="diag-label">Composite S_health</span>
+          <span id="diag-health" class="diag-value">—</span>
+        </div>
+        <div class="diag-threat">
+          <span class="diag-label">Threat Level</span>
+          <span id="diag-threat" class="diag-pill">—</span>
+        </div>
+      </div>
+      <section>
+        <h3>Vector Breakdown Matrix</h3>
+        <table class="diag-table" id="diag-vector-table">
+          <thead><tr><th>Component</th><th>Score</th></tr></thead>
+          <tbody>
+            <tr><td>S_ui</td><td id="diag-s-ui">—</td></tr>
+            <tr><td>S_vault</td><td id="diag-s-vault">—</td></tr>
+            <tr><td>S_nase</td><td id="diag-s-nase">—</td></tr>
+            <tr><td>S_sec</td><td id="diag-s-sec">—</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h3>Storage Capacity (IndexedDB)</h3>
+        <pre id="diag-storage" class="code-block">—</pre>
+      </section>
+      <section>
+        <h3>Timestamped Audit Log</h3>
+        <pre id="diag-audit" class="code-block diag-audit">—</pre>
+      </section>
+      <footer class="file-preview-footer">
+        <button id="diag-copy-audit" class="primary-btn">Copy Audit Report</button>
+      </footer>
+    </div>
+  </div>
+
+    <script src="js/usse-bridge.js?v=nnacc-v2.4"></script>
+  <script src="js/studio-engine.js?v=nnacc-v2.4"></script>
+  <script src="js/vault-engine.js?v=nnacc-v2.4"></script>
+  <script src="js/session-engine.js?v=nnacc-v2.4"></script>
+  <script src="js/debug-security-engine.js?v=nnacc-v2.4"></script>
+  <script src="js/ui-controller.js?v=nnacc-v2.4"></script>
 </body>
 </html>
