@@ -1,24 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { IBM_Plex_Mono, Inter } from 'next/font/google'
 import './globals.css'
 
-const ui = Inter({
-  subsets: ['latin'],
-  variable: '--font-ui',
-  display: 'swap',
-})
-
-const code = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-code',
-  display: 'swap',
-})
+// Deliberately not next/font/google: that fetches from fonts.googleapis.com
+// at build time, which fails in any network-restricted build environment
+// (this is exactly what was breaking `next build` throughout earlier
+// verification sessions). A system font stack renders instantly with no
+// network dependency and no FOUT/layout shift, and on Apple platforms in
+// particular closely matches Inter/IBM Plex Mono's proportions anyway.
+const FONT_UI_STACK =
+  'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif'
+const FONT_CODE_STACK =
+  'ui-monospace, "SF Mono", "SFMono-Regular", "Cascadia Code", "Fira Code", "IBM Plex Mono", Menlo, Consolas, monospace'
 
 export const metadata: Metadata = {
   title: 'Ultimate Fix-It / NanoHabitat',
   description:
-    'On-device multi-modal diagnostic engine: content-addressed store, working-set governor, live module runtime, 20 validation engines, and a 60-case verification suite. Runs entirely client-side.',
+    'On-device multi-modal diagnostic engine: content-addressed store, working-set governor, live module runtime, 24 validation engines, and a 60-case verification suite. Runs entirely client-side.',
   applicationName: 'Ultimate Fix-It',
   appleWebApp: {
     capable: true,
@@ -49,7 +46,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`bg-background ${ui.variable} ${code.variable}`}>
+    <html
+      lang="en"
+      className="bg-background"
+      style={{ ['--font-ui' as string]: FONT_UI_STACK, ['--font-code' as string]: FONT_CODE_STACK }}
+    >
       <body className="antialiased">{children}</body>
     </html>
   )
