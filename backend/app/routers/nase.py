@@ -143,3 +143,37 @@ def nase_rotate_hmac(settings: Settings = Depends(get_settings)) -> dict[str, An
         "activated_at": ver.activated_at,
         "grace_seconds": settings.hmac_grace_seconds,
     }
+
+
+# --- 5 macro / 25-engine orchestrator ---------------------------------------
+
+class MacroExecuteBody(BaseModel):
+    payload: dict[str, Any] = Field(default_factory=dict)
+    server_nonce: str | None = None
+
+
+@router.get("/macros")
+def nase_list_macros() -> dict[str, Any]:
+    from app.nase.engine_core import engine_registry
+
+    return {"macros": engine_registry.list_macros(), "engine_count": 25}
+
+
+@router.get("/engines")
+def nase_list_engines() -> dict[str, Any]:
+    from app.nase.engine_core import engine_registry
+
+    return {"engines": engine_registry.list_engines(), "count": 25}
+
+
+@router.post("/macro/{macro_name}")
+def nase_execute_macro(macro_name: str, body: MacroExecuteBody | None = None) -> dict[str, Any]:
+    from app.nase.engine_core import engine_registry
+
+    body = body or MacroExecuteBody()
+    result = engine_registry.execute_macro_task(
+        macro_name, payload=body.payload, server_nonce=body.server_nonce
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result)
+    return result
