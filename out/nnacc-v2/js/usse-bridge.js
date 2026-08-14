@@ -16,6 +16,10 @@
 (function (global) {
   "use strict";
 
+  /**
+   * Heuristic: does this text look like a game / physics / logic specification
+   * that USSE should be offered for?
+   */
   function looksLikeSpec(text, filename) {
     if (!text || text.length < 40) return false;
     const name = (filename || "").toLowerCase();
@@ -36,6 +40,10 @@
     return hits >= 2;
   }
 
+  /**
+   * Extract numeric parameters from free-form markdown / text.
+   * Returns a payload shaped for backend compute_physical_stress + compute_digital_load.
+   */
   function parseSpec(text, filename) {
     const payload = {
       source: filename || "pasted-spec",
@@ -55,6 +63,7 @@
       notes: [],
     };
 
+    // load_lb / mass
     const lb = text.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds)/i);
     if (lb) {
       payload.load_lb = parseFloat(lb[1]);
@@ -67,30 +76,35 @@
       payload.notes.push(`Detected mass_kg=${payload.mass_kg}`);
     }
 
+    // force
     const force = text.match(/(\d+(?:\.\d+)?)\s*(?:N|newtons?)/i);
     if (force) {
       payload.force_n = parseFloat(force[1]);
       payload.notes.push(`Detected force_n=${payload.force_n}`);
     }
 
+    // lever arm
     const arm = text.match(/(?:lever|arm|moment\s*arm)[^\d]{0,20}(\d+(?:\.\d+)?)\s*m/i);
     if (arm) {
       payload.lever_arm_m = parseFloat(arm[1]);
       payload.notes.push(`Detected lever_arm_m=${payload.lever_arm_m}`);
     }
 
+    // agents / digital load
     const agents = text.match(/(\d+)\s*(?:agents?|entities|npcs?)/i);
     if (agents) {
       payload.agent_count = parseInt(agents[1], 10);
       payload.notes.push(`Detected agent_count=${payload.agent_count}`);
     }
 
+    // duration
     const hours = text.match(/(\d+(?:\.\d+)?)\s*(?:h|hours?|hrs?)/i);
     if (hours) {
       payload.duration_h = parseFloat(hours[1]);
       payload.notes.push(`Detected duration_h=${payload.duration_h}`);
     }
 
+    // Fallback defaults for game-style specs that only mention “400 lb class”
     if (!payload.load_lb && !payload.mass_kg && !payload.force_n) {
       if (/\b(400|450|500)\s*lb/i.test(text) || /heavy\s*load/i.test(text)) {
         payload.load_lb = 400;
@@ -103,10 +117,15 @@
     return payload;
   }
 
+  /**
+   * Lightweight builder used when the user types a natural-language USSE request
+   * instead of dropping a file.
+   */
   function buildFromText(userText) {
     return parseSpec(userText, "chat-intent");
   }
 
+  // Public API
   global.USSEBridge = {
     looksLikeSpec,
     parseSpec,

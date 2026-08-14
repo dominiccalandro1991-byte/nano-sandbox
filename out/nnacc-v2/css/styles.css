@@ -25,3 +25,38 @@
 .volatile-banner .icon-btn{color:#1a1200;border:1px solid rgba(0,0,0,.2)}
 body.vault-locked .message-list,body.vault-locked #composer-input,body.vault-locked #send-btn,body.vault-locked #file-picker{opacity:.45;pointer-events:none}
 body.vault-locked::after{content:"VAULT LOCKED — NASE attestation denied";position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:180;background:rgba(255,107,107,.95);color:#fff;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600}
+
+
+/* —— Macro Engines + Stress Test (v2.8) —— */
+.panel-head-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}
+.panel-head-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.backend-status{font-size:12px;padding:4px 10px;border-radius:999px;background:rgba(148,163,184,.12);color:#94a3b8}
+.backend-status.online{background:rgba(34,197,94,.15);color:#4ade80}
+.backend-status.offline{background:rgba(239,68,68,.15);color:#f87171}
+.macro-engine-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.macro-card{background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.18);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.macro-card-head{display:flex;gap:10px;align-items:flex-start}
+.macro-icon{font-size:22px;line-height:1}
+.macro-card h3{margin:0;font-size:16px}
+.engine-chip-row{display:flex;flex-wrap:wrap;gap:6px}
+.engine-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(56,189,248,.12);color:#7dd3fc;font-family:ui-monospace,monospace}
+.macro-fields{display:flex;flex-direction:column;gap:8px}
+.macro-field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#94a3b8}
+.macro-field input,.stress-console select,.stress-json{width:100%;box-sizing:border-box;border-radius:8px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.65);color:#e2e8f0;padding:8px 10px;font:inherit}
+.macro-run-btn{margin-top:4px}
+.telemetry-badge{margin-top:8px;border-radius:10px;padding:10px;background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.15);font-size:12px}
+.telemetry-badge.ok{border-color:rgba(34,197,94,.35)}
+.telemetry-badge.fail{border-color:rgba(239,68,68,.4)}
+.tel-row{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.tel-label{color:#94a3b8}
+.tel-val{color:#e2e8f0;font-family:ui-monospace,monospace}
+.tel-val.s-attest{font-size:11px;word-break:break-all}
+.stress-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){.stress-layout{grid-template-columns:1fr}}
+.stress-console,.stress-live{display:flex;flex-direction:column;gap:10px}
+.stress-presets{display:flex;flex-wrap:wrap;gap:8px}
+.stress-json{min-height:180px;font-family:ui-monospace,monospace;font-size:12px}
+.mt{margin-top:12px}
+.chat-telemetry-strip{display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px;border-bottom:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.55)}
+.cts-pill{font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(56,189,248,.12);color:#bae6fd;font-family:ui-monospace,monospace}
+.cts-pill.mono{max-width:100%;overflow:hidden;text-overflow:ellipsis}

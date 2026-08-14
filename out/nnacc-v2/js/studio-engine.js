@@ -19,6 +19,9 @@
 (function (global) {
   "use strict";
 
+  // ---------------------------------------------------------------------------
+  // 25-Engine Concept Validation Loop (client-side simulation)
+  // ---------------------------------------------------------------------------
   function evaluateConcept(rawText, filename) {
     const text = (rawText || "").trim();
     const name = filename || "pasted-concept";
@@ -36,6 +39,7 @@
       return { ok: false, flags, enginesHit, summary: "Rejected — insufficient signal." };
     }
 
+    // Physics / soft-body / geometry proxies
     if (/\b(physics|rigid\s*body|soft\s*body|collision|gravity|torque|stress|strain|mass|force)\b/i.test(text)) {
       enginesHit.push("soft-body-physics", "geometry-tolerance");
       if (!/\b(mass|kg|lb|force|n|newton)\b/i.test(text)) {
@@ -48,6 +52,7 @@
       }
     }
 
+    // Thermal / dissipation
     if (/\b(thermal|heat|temperature|cooling|dissipation|thermal\s*path)\b/i.test(text)) {
       enginesHit.push("thermal-dissipation");
       if (!/\b(w|watt|°c|celsius|kelvin|k)\b/i.test(text)) {
@@ -60,6 +65,7 @@
       }
     }
 
+    // Multi-agent / digital load
     if (/\b(agent|npc|entity|swarm|multi-?agent|tick\s*rate|simulation)\b/i.test(text)) {
       enginesHit.push("multi-agent-interaction", "usse-stress");
       const agentMatch = text.match(/(\d+)\s*(?:agents?|entities|npcs?)/i);
@@ -73,6 +79,7 @@
       }
     }
 
+    // Economic / operational constraints
     if (/\b(budget|cost|revenue|roi|monetiz|pricing|subscription)\b/i.test(text)) {
       enginesHit.push("causal-fusion");
       flags.push({
@@ -83,14 +90,17 @@
       });
     }
 
+    // IP / vault
     if (/\b(ip|patent|copyright|seal|vault|proprietary|trade\s*secret)\b/i.test(text)) {
       enginesHit.push("oiav-vault");
     }
 
+    // Security / attestation
     if (/\b(attestation|nase|gateway|privilege|escalat|policy)\b/i.test(text)) {
       enginesHit.push("nase-aegis");
     }
 
+    // Music / audio / visual production signals
     const isAudioVisual =
       /\b(song|lyrics|bpm|tempo|melody|chord|verse|chorus|track|album|music|key\s*visual|music\s*video|cinematic|8k|photoreal)\b/i.test(text) ||
       /\.(mp3|wav|flac|aiff)$/i.test(name);
@@ -121,6 +131,9 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Dynamic Visual Canvas Mapper
+  // ---------------------------------------------------------------------------
   function generateCanvasMap(conceptText, validation) {
     const seed = hashString(conceptText.slice(0, 200) + (validation.source || ""));
     const rng = mulberry32(seed);
@@ -219,6 +232,9 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Studio Prompt & Media Architect (8K photoreal)
+  // ---------------------------------------------------------------------------
   function generateStudioPrompt(conceptText, validation) {
     const lower = (conceptText || "").toLowerCase();
     const isMusic =
@@ -276,6 +292,9 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
   function hashString(str) {
     let h = 2166136261;
     for (let i = 0; i < str.length; i++) {
@@ -294,6 +313,7 @@
     };
   }
 
+  // Public API
   global.StudioEngine = {
     evaluateConcept,
     generateCanvasMap,
