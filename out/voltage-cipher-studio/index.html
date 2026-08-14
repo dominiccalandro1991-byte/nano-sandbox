@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0c10" />
+  <title>Voltage Cipher Studio · Multi-Engine Chat</title>
+  <link rel="stylesheet" href="css/styles.css?v=vcs-1.0" />
+</head>
+<body>
+  <div id="app" class="app">
+    <aside id="sidebar" class="sidebar" aria-label="Studio navigation">
+      <div class="sidebar-header">
+        <span class="logo">VOLTAGE CIPHER STUDIO</span>
+        <span class="badge">V2.9 LIVE</span>
+        <button type="button" id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
+      </div>
+      <div class="sidebar-actions">
+        <button type="button" id="new-chat-btn" class="new-chat-btn">+ New Chat</button>
+        <button type="button" id="run-aegis-sweep" class="aegis-btn">⚡ RUN AEGIS DIAGNOSTIC</button>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Chat History</div>
+        <div id="session-history" class="session-history" role="list"></div>
+        <div class="nav-section-label">Targets</div>
+        <p class="nav-section-label" style="text-transform:none;letter-spacing:0;opacity:0.85;padding-top:0">
+          Use the topbar selector for 5 personas + engines 1–25.
+        </p>
+      </nav>
+      <div class="sidebar-footer">
+        <label>Backend Remote URL
+          <input id="setting-remote" type="url" placeholder="https://nano-sandbox-api.onrender.com" />
+        </label>
+        <button type="button" id="save-remote" class="ghost-btn">Save</button>
+      </div>
+    </aside>
+
+    <div class="stage">
+      <header class="topbar">
+        <button type="button" id="sidebar-toggle" class="icon-btn" aria-label="Open sidebar">☰</button>
+        <div class="topbar-title">
+          <h1>Multi-Engine Console</h1>
+          <p>Personas · Engines 1–25 · NASE live / mock stream</p>
+        </div>
+        <label class="sr-only" for="chat-target-select">Chat target</label>
+        <select id="chat-target-select" aria-label="Engine or persona target"></select>
+      </header>
+
+      <div class="persona-stage-wrap">
+        <div id="persona-stage" data-anim-state="IDLE" class="anim-idle">
+          <div id="persona-glyph" class="persona-glyph" aria-hidden="true">🔐</div>
+          <div class="persona-meta">
+            <h2 id="persona-name">Vail Cipher</h2>
+            <p id="persona-tagline">NASE Core &amp; Cryptographic Encryption</p>
+          </div>
+          <span id="persona-anim-label" class="persona-anim-label">IDLE</span>
+        </div>
+      </div>
+
+      <main id="view-chat">
+        <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
+        <div class="composer-wrap">
+          <div class="composer">
+            <textarea
+              id="composer-input"
+              rows="1"
+              placeholder="Message the selected engine or persona…"
+              aria-label="Message"
+            ></textarea>
+            <button type="button" id="send-btn" class="primary-btn">Send</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <style>
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+  </style>
+
+  <script src="js/avatar-controller.js?v=vcs-1.0"></script>
+  <script src="js/engine-router.js?v=vcs-1.0"></script>
+  <script src="js/app.js?v=vcs-1.0"></script>
+</body>
+</html>
