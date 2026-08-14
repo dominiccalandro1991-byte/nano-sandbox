@@ -290,3 +290,55 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
 .aegis-patch-card{margin-bottom:12px;padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(2,6,23,.5)}
 .aegis-patch-card header{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);margin-bottom:8px}
 #view-aegis.aegis-critical{box-shadow:inset 0 0 0 1px rgba(255,51,102,.25)}
+
+/* —— Macro Engines layout fix (v2.12) —— */
+/* Root cause: .view { overflow:hidden } clipped the 5-card grid with no scroll. */
+#view-macros.view,
+#view-stress.view,
+#view-aegis.view,
+#view-registry.view,
+#view-vault.view,
+#view-studio.view,
+#view-usse.view,
+#view-oiav.view {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+#view-macros .macro-panel,
+.macro-panel {
+  max-width: min(1100px, 100%);
+  width: 100%;
+  margin: 12px auto 40px;
+  padding: 0 16px 48px;
+  box-sizing: border-box;
+}
+.macro-engine-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)) !important;
+  gap: 14px;
+  width: 100%;
+  align-items: stretch;
+  padding-bottom: 32px;
+  box-sizing: border-box;
+}
+.macro-card {
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  box-sizing: border-box;
+}
+.macro-card .macro-run-btn {
+  width: 100%;
+}
+.macro-card .macro-telemetry {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .macro-engine-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
