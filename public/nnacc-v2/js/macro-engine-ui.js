@@ -184,11 +184,24 @@
           );
         })
         .join("");
-      var chips = (info.engine_registry_ids || [])
+      var regIds = info.engine_registry_ids || [];
+      var engIds = info.engine_ids || [];
+      var chips = regIds
         .map(function (id) {
-          return '<span class="engine-chip">' + escapeHtml(id) + "</span>";
+          return '<span class="engine-chip" title="' + escapeHtml(id) + '">' + escapeHtml(id) + "</span>";
         })
         .join("");
+      var phiRange =
+        engIds.length >= 2
+          ? "φ" + engIds[0] + "–φ" + engIds[engIds.length - 1]
+          : engIds.length === 1
+            ? "φ" + engIds[0]
+            : "";
+      var phiLine =
+        '<p class="macro-phi-label">' +
+        escapeHtml(phiRange) +
+        (regIds.length ? " · " + regIds.length + " engines" : " · awaiting registry") +
+        "</p>";
       card.innerHTML =
         '<header class="macro-card-head"><span class="macro-icon">' +
         meta.icon +
@@ -196,8 +209,10 @@
         escapeHtml(meta.title) +
         '</h3><p class="muted small">' +
         escapeHtml(meta.blurb) +
-        "</p></div></header>" +
-        '<div class="engine-chip-row">' +
+        "</p>" +
+        phiLine +
+        "</div></header>" +
+        '<div class="engine-chip-row" aria-label="Registry engines">' +
         chips +
         "</div>" +
         '<div class="macro-fields">' +
