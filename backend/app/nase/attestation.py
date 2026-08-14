@@ -1,34 +1,28 @@
-"""NASE live attestation: nonce, 25-engine S_attest equation, durable vault-sync.
+"""NASE live attestation: nonce, 25-engine S_attest, SQLAlchemy vault-sync.
 
 Evidence classification
 -----------------------
-- Freshness predicate: Verified (check_attestation_freshness).
-- Single-use nonce: Partially Verified (in-memory TTL map).
-- S_attest = H(N_server || Σ ω_k·φ_k(t)): Partially Verified via engine_vectors
-  (registry-derived φ_k; HMAC-signed snapshot; stdlib SHA-256).
-- Vault-sync durability: Partially Verified (SQLite file on local disk;
-  path configurable; survives process restart). Not multi-node replicated.
-- Server never decrypts vault ciphertext: Verified by API contract (stores
-  ciphertext_b64 + content_hash only).
+- Freshness: Verified (check_attestation_freshness).
+- Nonce anti-replay: Partially Verified (process-local).
+- S_attest equation: Partially Verified (engine_vectors + TEE/HMAC seal).
+- Vault durability: Partially Verified (SQLAlchemy; PostgreSQL when DATABASE_URL
+  points at a cluster; tests use SQLite). Multi-region deployment Missing until
+  provisioned.
+- Server never decrypts ciphertext: Verified.
 """
 
 from __future__ import annotations
 
-import os
 import secrets
-import sqlite3
 import threading
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-from app.nase.engine_vectors import (
-    compute_s_attest,
-    export_engine_snapshot,
-)
+from app.nase.engine_vectors import compute_s_attest, export_engine_snapshot
 from app.nase.invariants import DEFAULT_DELTA_SECONDS, check_attestation_freshness
+from app.nase import vault_db
 
 
 @dataclass
@@ -109,9 +103,19 @@ class NonceStore:
 _NONCE_STORE = NonceStore()
 
 
-def issue_nonce_with_vectors(secret: str) -> dict[str, Any]:
-    """Issue nonce bound to a signed 25-engine snapshot and expected S_attest."""
-    snap = export_engine_snapshot(secret)
+def issue_nonce_with_vectors(
+    seed: str,
+    *,
+    rotation_seconds: float = 3600.0,
+    grace_seconds: float = 300.0,
+    kms_provider: str = "software_tee",
+) -> dict[str, Any]:
+    snap = export_engine_snapshot(
+        seed,
+        rotation_seconds=rotation_seconds,
+        grace_seconds=grace_seconds,
+        kms_provider=kms_provider,
+    )
     provisional = _NONCE_STORE.issue(
         snapshot_t=snap["t"],
         weighted_sum_value=snap["weighted_sum"],
@@ -147,7 +151,6 @@ def verify_attestation(
     require_s_attest: bool = False,
     attestation_secret: str | None = None,
 ) -> dict[str, Any]:
-    """Verify freshness + nonce + optional S_attest (25-engine equation)."""
     now_ts = time.time() if now is None else float(now)
     findings: list[str] = []
 
@@ -200,7 +203,6 @@ def verify_attestation(
     expected_s = None
     client_hash = client_s_attest or client_binding_hash
 
-    # If client provided S_attest OR require_s_attest, enforce equation
     if require_s_attest or client_hash:
         if rec and rec.expected_s_attest:
             expected_s = rec.expected_s_attest
@@ -249,146 +251,22 @@ def verify_attestation(
     }
 
 
-class DurableVaultStore:
-    """SQLite-backed ciphertext store. Server never holds decryption keys."""
-
-    def __init__(self, db_path: str) -> None:
-        self._path = db_path
-        self._lock = threading.Lock()
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    def _init_db(self) -> None:
-        with self._lock:
-            conn = self._connect()
-            try:
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS vault_blobs (
-                        blob_id TEXT PRIMARY KEY,
-                        content_hash TEXT NOT NULL,
-                        size INTEGER NOT NULL,
-                        stored_at REAL NOT NULL,
-                        session_hint TEXT,
-                        ciphertext_b64 TEXT NOT NULL,
-                        identity_hint TEXT
-                    )
-                    """
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_vault_stored_at ON vault_blobs(stored_at)"
-                )
-                conn.commit()
-            finally:
-                conn.close()
-
-    def put(
-        self,
-        ciphertext_b64: str,
-        content_hash: str,
-        session_hint: str | None = None,
-        identity_hint: str | None = None,
-        max_bytes: int = 8 * 1024 * 1024,
-    ) -> dict[str, Any]:
-        if not ciphertext_b64 or not content_hash:
-            raise ValueError("ciphertext_b64 and content_hash required")
-        size = len(ciphertext_b64.encode("utf-8"))
-        if size > max_bytes:
-            raise ValueError(f"blob exceeds max_bytes={max_bytes}")
-        blob_id = uuid.uuid4().hex
-        stored_at = time.time()
-        with self._lock:
-            conn = self._connect()
-            try:
-                conn.execute(
-                    """
-                    INSERT INTO vault_blobs
-                    (blob_id, content_hash, size, stored_at, session_hint, ciphertext_b64, identity_hint)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        blob_id,
-                        content_hash.lower(),
-                        size,
-                        stored_at,
-                        session_hint,
-                        ciphertext_b64,
-                        identity_hint,
-                    ),
-                )
-                conn.commit()
-            finally:
-                conn.close()
-        return {
-            "blob_id": blob_id,
-            "content_hash": content_hash.lower(),
-            "size": size,
-            "stored_at": stored_at,
-            "durable": True,
-            "backend": "sqlite",
-        }
-
-    def get(self, blob_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            conn = self._connect()
-            try:
-                row = conn.execute(
-                    "SELECT * FROM vault_blobs WHERE blob_id = ?", (blob_id,)
-                ).fetchone()
-            finally:
-                conn.close()
-        if row is None:
-            return None
-        return {
-            "blob_id": row["blob_id"],
-            "content_hash": row["content_hash"],
-            "size": row["size"],
-            "stored_at": row["stored_at"],
-            "session_hint": row["session_hint"],
-            "identity_hint": row["identity_hint"],
-            "ciphertext_b64": row["ciphertext_b64"],
-            "durable": True,
-            "backend": "sqlite",
-        }
-
-    def count(self) -> int:
-        with self._lock:
-            conn = self._connect()
-            try:
-                row = conn.execute("SELECT COUNT(*) AS c FROM vault_blobs").fetchone()
-                return int(row["c"] if row else 0)
-            finally:
-                conn.close()
-
-
-_DEFAULT_VAULT_PATH = os.environ.get(
-    "NANO_SANDBOX_VAULT_DB",
-    str(Path(__file__).resolve().parents[2] / "data" / "nase_vault.sqlite"),
-)
-_VAULT_STORE = DurableVaultStore(_DEFAULT_VAULT_PATH)
-
-
 def vault_sync_put(
     ciphertext_b64: str,
     content_hash: str,
     session_hint: str | None = None,
     identity_hint: str | None = None,
 ) -> dict[str, Any]:
-    return _VAULT_STORE.put(ciphertext_b64, content_hash, session_hint, identity_hint)
+    return vault_db.vault_put(ciphertext_b64, content_hash, session_hint, identity_hint)
 
 
 def vault_sync_get(blob_id: str) -> dict[str, Any] | None:
-    return _VAULT_STORE.get(blob_id)
+    return vault_db.vault_get(blob_id)
 
 
 def vault_sync_count() -> int:
-    return _VAULT_STORE.count()
+    return vault_db.vault_count()
 
 
 def get_vault_db_path() -> str:
-    return _DEFAULT_VAULT_PATH
+    return "sqlalchemy-managed"

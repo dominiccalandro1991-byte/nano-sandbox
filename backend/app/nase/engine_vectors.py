@@ -1,67 +1,49 @@
-"""25-engine state vector export + HMAC signing for NASE attestation math.
+"""25-engine state vector export with Software-TEE / KMS-backed signatures.
 
-Formal client/server shared equation (as required by continuity directive):
+Formal equation:
 
     S_attest = H( N_server || Σ_{k=1}^{25} ω_k · φ_k(t) )
 
 Evidence classification
 -----------------------
-- Validator registry cardinality (25): Verified (list_validators()).
-- φ_k(t): Partially Verified — deterministic diagnostic state scalars derived
-  from each registered validator's identity + description + time bucket.
-  These are NOT live internal model activations or Secure-Enclave measurements
-  (those remain Missing). They are a cryptographically bindable snapshot of
-  registry-derived engine health proxies at time t.
-- ω_k: Partially Verified — uniform 1/25 weights (explicit, auditable).
-- Signing: Partially Verified — HMAC-SHA256 with server secret from Settings
-  (NANO_SANDBOX_ATTESTATION_SECRET). Not HSM / Secure Enclave backed.
-- SHA-256 of (nonce || sum): Partially Verified (stdlib hashlib).
+- Validator registry cardinality (25): Verified.
+- φ_k(t): Partially Verified diagnostic scalars from registry + time bucket,
+  then sealed under SoftwareTEEProvider (or CloudKMS when configured).
+  Physical TEE / cloud HSM measurements remain Missing without KMS ARN.
+- ω_k uniform 1/25: Verified.
+- Snapshot signature: Partially Verified via RotatingHmacSecret + TEE HMAC.
+- S_attest SHA-256: Partially Verified (stdlib).
 """
 
 from __future__ import annotations
 
 import hashlib
-import hmac
-import math
 import time
 from typing import Any
 
+from app.nase.kms import get_key_provider
+from app.nase.secret_rotation import get_rotator
 from app.validators import list_validators
 
-# Uniform weights: Σ ω_k = 1
 ENGINE_COUNT = 25
 UNIFORM_WEIGHT = 1.0 / ENGINE_COUNT
 
 
 def _stable_unit_float(material: str) -> float:
-    """Map arbitrary string material to (0, 1] via SHA-256."""
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
-    # take 12 hex chars → int → scale into (0, 1]
     n = int(digest[:12], 16)
     return ((n % 1_000_000) + 1) / 1_000_001.0
 
 
 def compute_phi_vector(t: float | None = None) -> list[dict[str, Any]]:
-    """Build ordered φ_k(t) for all registered validators.
-
-    φ_k incorporates:
-      - stable validator identity contribution
-      - time-bucket drift (60s buckets) so snapshots evolve
-      - description length structural term (bounded)
-    """
     now = time.time() if t is None else float(t)
     bucket = int(now // 60)
     validators = list_validators()
-    if len(validators) != ENGINE_COUNT:
-        # Still produce a vector; pad or trim deterministically for equation length
-        pass
-
     vectors: list[dict[str, Any]] = []
     for idx, v in enumerate(validators):
         base = _stable_unit_float(f"{v.id}|{v.description}|{idx}")
         drift = _stable_unit_float(f"{v.id}|bucket:{bucket}")
         structural = min(1.0, (len(v.description or "") % 97) / 97.0 + 0.01)
-        # Blend into (0, 1]
         phi = max(1e-6, min(1.0, 0.55 * base + 0.30 * drift + 0.15 * structural))
         vectors.append(
             {
@@ -71,40 +53,17 @@ def compute_phi_vector(t: float | None = None) -> list[dict[str, Any]]:
                 "phi": round(phi, 12),
             }
         )
-
-    # Pad to exactly 25 if registry ever drifts (defensive)
     while len(vectors) < ENGINE_COUNT:
         k = len(vectors) + 1
         phi = _stable_unit_float(f"pad|{k}|{bucket}")
         vectors.append(
-            {
-                "k": k,
-                "engine_id": f"pad-{k}",
-                "omega": UNIFORM_WEIGHT,
-                "phi": round(phi, 12),
-            }
+            {"k": k, "engine_id": f"pad-{k}", "omega": UNIFORM_WEIGHT, "phi": round(phi, 12)}
         )
     return vectors[:ENGINE_COUNT]
 
 
 def weighted_sum(vectors: list[dict[str, Any]]) -> float:
-    total = 0.0
-    for row in vectors:
-        total += float(row["omega"]) * float(row["phi"])
-    return total
-
-
-def sign_bundle(payload: str, secret: str) -> str:
-    return hmac.new(
-        secret.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-
-
-def verify_bundle_signature(payload: str, signature: str, secret: str) -> bool:
-    expected = sign_bundle(payload, secret)
-    return hmac.compare_digest(expected, signature)
+    return sum(float(r["omega"]) * float(r["phi"]) for r in vectors)
 
 
 def sha256_hex(data: str | bytes) -> str:
@@ -114,23 +73,38 @@ def sha256_hex(data: str | bytes) -> str:
 
 
 def compute_s_attest(nonce: str, weighted: float) -> str:
-    """S_attest = H( N_server || Σ ω_k·φ_k(t) )"""
-    # Fixed decimal formatting for cross-language parity
-    material = f"{nonce}|{weighted:.12f}"
-    return sha256_hex(material)
+    return sha256_hex(f"{nonce}|{weighted:.12f}")
 
 
-def export_engine_snapshot(secret: str, t: float | None = None) -> dict[str, Any]:
-    """Export signed 25-engine vector snapshot for client attestation math."""
+def export_engine_snapshot(
+    seed: str,
+    t: float | None = None,
+    *,
+    rotation_seconds: float = 3600.0,
+    grace_seconds: float = 300.0,
+    kms_provider: str = "software_tee",
+) -> dict[str, Any]:
+    """Export signed 25-engine vector snapshot.
+
+    Signature chain:
+      1) Software TEE (or cloud KMS contract) signs canonical payload
+      2) Rotating HMAC also signs for rotation-grace verification
+    """
     now = time.time() if t is None else float(t)
     vectors = compute_phi_vector(now)
     wsum = weighted_sum(vectors)
-    # Canonical payload for HMAC (exclude signature itself)
     canonical = (
         f"t={now:.6f}|count={len(vectors)}|sum={wsum:.12f}|"
         + ",".join(f"{r['engine_id']}:{r['phi']:.12f}" for r in vectors)
     )
-    signature = sign_bundle(canonical, secret)
+    payload = canonical.encode("utf-8")
+
+    provider = get_key_provider(kms_provider, seed=seed)
+    tee_signed = provider.sign(payload)
+
+    rotator = get_rotator(seed, rotation_seconds, grace_seconds)
+    rot_sig, rot_ver = rotator.sign(payload)
+
     return {
         "t": now,
         "engine_count": len(vectors),
@@ -138,10 +112,16 @@ def export_engine_snapshot(secret: str, t: float | None = None) -> dict[str, Any
         "weighted_sum": round(wsum, 12),
         "vectors": vectors,
         "canonical": canonical,
-        "signature": signature,
+        "tee_signature": tee_signed.signature,
+        "tee_key_id": tee_signed.key_id,
+        "tee_provider": tee_signed.provider,
+        "hmac_signature": rot_sig,
+        "hmac_version_id": rot_ver,
+        # backward-compatible field used by older clients/tests
+        "signature": tee_signed.signature,
         "equation": "S_attest = H(N_server || sum(omega_k * phi_k(t)))",
         "evidence": (
-            "phi_k are registry-derived diagnostic scalars (Partially Verified); "
-            "not Secure-Enclave engine internals (Missing)."
+            "phi_k registry-derived; sealed via SoftwareTEEProvider. "
+            "Physical TEE/cloud HSM Missing until KMS ARN configured."
         ),
     }

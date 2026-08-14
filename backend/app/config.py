@@ -1,8 +1,8 @@
 """Runtime configuration.
 
-Every value has a safe default so the service boots with zero configuration
-for local dev / testing. Override via environment variables in real
-deployments.
+Evidence: settings are Partially Verified operational knobs. Cloud KMS ARNs,
+multi-region Postgres clusters, and live OIDC client secrets are supplied by
+the deployment environment (Missing until configured).
 """
 from __future__ import annotations
 
@@ -12,29 +12,32 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="NANO_SANDBOX_", env_file=".env", extra="ignore")
 
-    # Comma-separated list of origins allowed to call this API from a browser.
-    # "*" is fine for local dev; NHSE running from a real hosted origin should
-    # pin this down in production.
     cors_allow_origins: str = "*"
-
-    # Hard ceiling on how long a single sandboxed validation job may run.
     job_timeout_seconds: float = 10.0
-
-    # Hard ceiling on memory (bytes) a sandboxed job's worker process may use.
-    # Enforced via RLIMIT_AS on POSIX; best-effort only on other platforms.
-    job_memory_limit_bytes: int = 512 * 1024 * 1024  # 512 MB
-
-    # Maximum number of validation jobs kept in the in-memory job store.
-    # This is intentionally NOT a database -- see app/orchestrator/jobs.py
-    # for why, and what to swap in if this needs to survive restarts.
+    job_memory_limit_bytes: int = 512 * 1024 * 1024
     max_retained_jobs: int = 500
 
-    # HMAC secret for signing 25-engine attestation snapshots.
-    # Override in production via NANO_SANDBOX_ATTESTATION_SECRET.
-    attestation_secret: str = "nano-sandbox-dev-attestation-secret-change-me"
+    # Primary DB URL. Prefer PostgreSQL in production, e.g.:
+    #   postgresql+psycopg://user:pass@host:5432/nase
+    # Tests default to SQLite so CI needs no external cluster.
+    database_url: str = "sqlite:////tmp/nano-sandbox-nase-vault.db"
 
-    # SQLite path for durable vault-sync ciphertext (server never decrypts).
-    vault_db_path: str = "data/nase_vault.sqlite"
+    # Optional read-replica URL for multi-region read path (Partially Verified architecture).
+    database_read_url: str | None = None
+
+    # Seed material for Software TEE / rotation manager when cloud KMS is not configured.
+    # Production should set NANO_SANDBOX_KMS_SEED or wire CloudKMSProvider.
+    kms_seed: str = "nano-sandbox-dev-kms-seed-change-me"
+    kms_provider: str = "software_tee"  # software_tee | cloud_kms_stub
+
+    # OIDC (federated identity) — optional; client may present JWT for key derivation.
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
+
+    # HMAC rotation interval seconds (dynamic secret management)
+    hmac_rotation_seconds: float = 3600.0
+    hmac_grace_seconds: float = 300.0
 
 
 def get_settings() -> Settings:

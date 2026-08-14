@@ -120,7 +120,35 @@
    * Evidence: Partially Verified (Web Crypto PBKDF2+AES-GCM). Federated IdP auth
    * is Missing in the static shell; token is device-persistent local secret.
    */
+  function getOidcJwt() {
+    try {
+      return sessionStorage.getItem("nnacc-v2-oidc-id-token")
+        || localStorage.getItem("nnacc-v2-oidc-id-token")
+        || "";
+    } catch (e) { return ""; }
+  }
+
+  function parseJwtSub(token) {
+    try {
+      var parts = token.split(".");
+      if (parts.length < 2) return null;
+      var json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+      var payload = JSON.parse(json);
+      return payload.sub || null;
+    } catch (e) { return null; }
+  }
+
+  /**
+   * Prefer federated OIDC JWT `sub` for PBKDF2 material when present;
+   * otherwise fall back to persistent device token (degraded mode).
+   * Evidence: Partially Verified OIDC architecture; live IdP Missing until configured.
+   */
   function getOrCreateIdentityToken() {
+    var jwt = getOidcJwt();
+    if (jwt) {
+      var sub = parseJwtSub(jwt);
+      if (sub) return "oidc:" + sub + ":" + jwt.slice(-32);
+    }
     var KEY = "nnacc-v2-identity-token";
     try {
       var existing = localStorage.getItem(KEY);
@@ -332,6 +360,8 @@
     getBackend: function () { return backend; },
     isVolatile: function () { return volatile; },
     getSyncQueue: function () { return syncQueue.slice(); },
+    setOidcIdToken: function (token) { try { sessionStorage.setItem("nnacc-v2-oidc-id-token", token || ""); } catch (e) {} },
+    getOidcIdToken: getOidcJwt,
     DB_NAME: DB_NAME,
   };
 })(typeof window !== "undefined" ? window : globalThis);

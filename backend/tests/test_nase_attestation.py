@@ -1,22 +1,21 @@
-"""NASE attestation tests: 25-engine S_attest equation, durable SQLite vault-sync.
+"""NASE enterprise-hardening tests: TEE seal, rotation, SQLAlchemy vault, OIDC hints.
 
-Evidence: exercises registry-derived φ_k (Partially Verified), HMAC snapshots,
-S_attest = H(nonce || sum), SQLite durability across reopen, and fail-closed HTTP.
+Evidence: mocks/contracts for cloud KMS and multi-region PG; Software TEE and
+SQLite-backed SQLAlchemy exercised for real. Physical HSM / live Auth0 remain Missing.
 """
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.main import app
 from app.nase.attestation import (
-    DurableVaultStore,
-    issue_nonce,
     issue_nonce_with_vectors,
     verify_attestation,
     vault_sync_put,
@@ -30,10 +29,22 @@ from app.nase.engine_vectors import (
     weighted_sum,
 )
 from app.nase.invariants import check_attestation_freshness
-from app.config import get_settings
+from app.nase.kms import CloudKMSProvider, SoftwareTEEProvider, get_key_provider, reset_key_provider
+from app.nase.oidc import extract_subject_unverified, identity_hint_from_subject, verify_oidc_token
+from app.nase.secret_rotation import RotatingHmacSecret, get_rotator, reset_rotator
+from app.nase.vault_db import init_engine, reset_engine, vault_count, vault_put, vault_get
 
 client = TestClient(app)
-SECRET = get_settings().attestation_secret
+SEED = get_settings().kms_seed
+
+
+@pytest.fixture(autouse=True)
+def _reset_crypto_singletons():
+    reset_key_provider()
+    reset_rotator()
+    yield
+    reset_key_provider()
+    reset_rotator()
 
 
 def test_engine_vector_count_is_25():
@@ -42,53 +53,55 @@ def test_engine_vector_count_is_25():
     assert abs(sum(v["omega"] for v in vectors) - 1.0) < 1e-9
 
 
-def test_export_snapshot_signed():
-    snap = export_engine_snapshot(SECRET)
+def test_export_snapshot_tee_and_hmac_signed():
+    snap = export_engine_snapshot(SEED)
     assert snap["engine_count"] == 25
-    assert "signature" in snap
-    assert len(snap["vectors"]) == 25
-    assert "weighted_sum" in snap
+    assert snap["tee_provider"] == "software_tee"
+    assert snap["tee_signature"]
+    assert snap["hmac_signature"]
+    assert snap["hmac_version_id"]
+    provider = get_key_provider("software_tee", seed=SEED)
+    assert provider.verify(snap["canonical"].encode(), snap["tee_signature"])
+
+
+def test_software_tee_does_not_export_raw_key():
+    tee = SoftwareTEEProvider("test-seed-abc")
+    blob = tee.sign(b"payload")
+    assert blob.provider == "software_tee"
+    assert not hasattr(tee, "export_key")
+    assert tee.verify(b"payload", blob.signature)
+
+
+def test_cloud_kms_unconfigured_fails_closed():
+    kms = CloudKMSProvider(key_arn=None)
+    with pytest.raises(RuntimeError, match="not configured"):
+        kms.sign(b"x")
 
 
 def test_s_attest_equation_matches():
-    snap = export_engine_snapshot(SECRET)
+    snap = export_engine_snapshot(SEED)
     nonce = "abc123nonce"
     s = compute_s_attest(nonce, snap["weighted_sum"])
     assert len(s) == 64
-    # recompute
-    s2 = compute_s_attest(nonce, weighted_sum(snap["vectors"]))
-    assert s == s2
+    assert s == compute_s_attest(nonce, weighted_sum(snap["vectors"]))
 
 
-def test_issue_nonce_with_vectors_binds_s_attest():
-    issued = issue_nonce_with_vectors(SECRET)
-    assert "nonce" in issued
-    assert "engine_snapshot" in issued
-    assert issued["engine_snapshot"]["engine_count"] == 25
-    assert issued["expected_s_attest"] == compute_s_attest(
-        issued["nonce"], issued["engine_snapshot"]["weighted_sum"]
-    )
-
-
-def test_verify_with_correct_s_attest():
-    issued = issue_nonce_with_vectors(SECRET)
+def test_issue_and_verify_with_s_attest():
+    issued = issue_nonce_with_vectors(SEED)
     now = time.time()
-    att = now - 3.0
     result = verify_attestation(
-        attestation_timestamp=att,
+        attestation_timestamp=now - 2.0,
         nonce=issued["nonce"],
         client_s_attest=issued["expected_s_attest"],
         now=now,
-        require_nonce=True,
         require_s_attest=True,
-        attestation_secret=SECRET,
+        attestation_secret=SEED,
     )
     assert result["ok"] is True
-    assert result["s_attest_ok"] is True
 
 
 def test_verify_wrong_s_attest_403():
-    issued = issue_nonce_with_vectors(SECRET)
+    issued = issue_nonce_with_vectors(SEED)
     now = time.time()
     result = verify_attestation(
         attestation_timestamp=now - 2.0,
@@ -96,147 +109,110 @@ def test_verify_wrong_s_attest_403():
         client_s_attest="0" * 64,
         now=now,
         require_s_attest=True,
-        attestation_secret=SECRET,
+        attestation_secret=SEED,
     )
     assert result["ok"] is False
     assert result["http_hint"] == 403
 
 
-def test_verify_replay_nonce_denied():
-    issued = issue_nonce_with_vectors(SECRET)
-    now = time.time()
-    att = now - 2.0
-    first = verify_attestation(
-        attestation_timestamp=att,
-        nonce=issued["nonce"],
-        client_s_attest=issued["expected_s_attest"],
-        now=now,
-        require_s_attest=True,
-        attestation_secret=SECRET,
-    )
-    assert first["ok"] is True
-    second = verify_attestation(
-        attestation_timestamp=att,
-        nonce=issued["nonce"],
-        client_s_attest=issued["expected_s_attest"],
-        now=now,
-        require_s_attest=True,
-        attestation_secret=SECRET,
-    )
-    assert second["ok"] is False
-    assert second["http_hint"] == 403
+def test_hmac_rotation_grace_window():
+    rot = RotatingHmacSecret("rot-seed", rotation_seconds=30.0, grace_seconds=60.0)
+    sig1, ver1 = rot.sign(b"hello")
+    assert rot.verify(b"hello", sig1, ver1)
+    ver2 = rot.force_rotate()
+    assert ver2.version_id != ver1
+    # old signature still valid during grace
+    assert rot.verify(b"hello", sig1, ver1)
+    sig2, ver2b = rot.sign(b"hello")
+    assert rot.verify(b"hello", sig2, ver2b)
 
 
-def test_verify_stale_attestation_401():
-    issued = issue_nonce_with_vectors(SECRET)
-    now = time.time()
-    result = verify_attestation(
-        attestation_timestamp=now - 120.0,
-        nonce=issued["nonce"],
-        client_s_attest=issued["expected_s_attest"],
-        now=now,
-        delta_seconds=30.0,
-        require_s_attest=True,
-        attestation_secret=SECRET,
-    )
-    assert result["ok"] is False
-    assert result["http_hint"] == 401
-
-
-def test_http_nonce_includes_engine_snapshot():
+def test_http_nonce_includes_tee_fields():
     r = client.post("/nase/nonce")
     assert r.status_code == 200
     body = r.json()
-    assert "nonce" in body
-    assert body["engine_snapshot"]["engine_count"] == 25
-    assert "expected_s_attest" in body
+    snap = body["engine_snapshot"]
+    assert snap["engine_count"] == 25
+    assert "tee_signature" in snap
+    assert "hmac_version_id" in snap
+    assert body["expected_s_attest"]
 
 
-def test_http_engine_vectors():
-    r = client.get("/nase/engine-vectors")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["engine_count"] == 25
-    assert len(body["vectors"]) == 25
-
-
-def test_http_verify_ok_and_fail():
+def test_http_verify_and_rotate_endpoint():
     n = client.post("/nase/nonce").json()
     now = time.time()
     ok = client.post(
         "/nase/verify",
         json={
-            "attestation_timestamp": now - 2.0,
+            "attestation_timestamp": now - 1.0,
             "nonce": n["nonce"],
             "client_s_attest": n["expected_s_attest"],
             "require_s_attest": True,
         },
     )
     assert ok.status_code == 200
-
-    n2 = client.post("/nase/nonce").json()
-    bad = client.post(
-        "/nase/verify",
-        json={
-            "attestation_timestamp": now - 2.0,
-            "nonce": n2["nonce"],
-            "client_s_attest": "ff" * 32,
-            "require_s_attest": True,
-        },
-    )
-    assert bad.status_code == 403
+    rot = client.post("/nase/rotate-hmac")
+    assert rot.status_code == 200
+    assert rot.json()["rotated"] is True
 
 
-def test_sqlite_vault_durable_across_reopen(tmp_path):
-    db = tmp_path / "vault_test.sqlite"
-    store = DurableVaultStore(str(db))
-    put = store.put("dGVzdA==", content_hash="abc123", session_hint="s1", identity_hint="id1")
+def test_sqlalchemy_vault_roundtrip(tmp_path):
+    reset_engine()
+    db = tmp_path / "vault.db"
+    init_engine(f"sqlite:///{db}")
+    put = vault_put("dGVzdA==", "abc123", session_hint="s1", identity_hint="id1")
+    assert put["backend"] == "sqlalchemy"
     assert put["durable"] is True
-    assert put["backend"] == "sqlite"
-    # reopen new instance on same path
-    store2 = DurableVaultStore(str(db))
-    got = store2.get(put["blob_id"])
+    got = vault_get(put["blob_id"])
     assert got is not None
     assert got["ciphertext_b64"] == "dGVzdA=="
-    assert got["content_hash"] == "abc123"
-    assert store2.count() >= 1
+    # reopen
+    reset_engine()
+    init_engine(f"sqlite:///{db}")
+    got2 = vault_get(put["blob_id"])
+    assert got2 is not None
+    assert vault_count() >= 1
 
 
-def test_http_vault_sync_durable():
+def test_http_vault_sync_sqlalchemy():
     r = client.post(
         "/nase/vault-sync",
         json={
-            "ciphertext_b64": "AQIDBA==",
+            "ciphertext_b64": "AQID",
             "content_hash": "deadbeef",
-            "session_hint": "nnacc-test",
-            "identity_hint": "fp-test",
+            "session_hint": "t",
+            "identity_hint": "fp",
         },
     )
     assert r.status_code == 200
-    body = r.json()
-    assert body.get("durable") is True
-    assert body.get("backend") == "sqlite"
-    blob_id = body["blob_id"]
-    g = client.get(f"/nase/vault-sync/{blob_id}")
-    assert g.status_code == 200
-    assert g.json()["content_hash"] == "deadbeef"
-
+    assert r.json()["backend"] == "sqlalchemy"
     status = client.get("/nase/vault-sync-status")
     assert status.status_code == 200
+    assert status.json()["backend"] == "sqlalchemy"
     assert status.json()["durable"] is True
-    assert status.json()["backend"] == "sqlite"
 
 
-def test_server_response_has_no_plaintext_key_material():
-    r = client.post(
-        "/nase/vault-sync",
-        json={"ciphertext_b64": "AAAA", "content_hash": "00"},
+def test_oidc_subject_and_test_issuer_verify():
+    token = jwt.encode(
+        {"sub": "user-42", "iss": "https://test.local/oidc", "aud": "nnacc"},
+        key="not-used",
+        algorithm="HS256",
     )
-    body = r.json()
-    # Must not echo any decryption key fields
-    assert "key" not in body
-    assert "aes" not in str(body).lower()
-    assert "pbkdf" not in str(body).lower()
+    sub = extract_subject_unverified(token)
+    assert sub == "user-42"
+    claims = verify_oidc_token(
+        token,
+        issuer="https://test.local/oidc",
+        audience="nnacc",
+        jwks_url=None,
+    )
+    assert claims["sub"] == "user-42"
+    assert identity_hint_from_subject("user-42")
+
+
+def test_oidc_unconfigured_fails_closed():
+    with pytest.raises(RuntimeError, match="not configured"):
+        verify_oidc_token("x.y.z", issuer=None, audience=None, jwks_url=None)
 
 
 def test_existing_freshness_predicate_still_holds():

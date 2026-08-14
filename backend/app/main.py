@@ -18,9 +18,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
 from app.routers import health, jobs, validators, nase
+from app.nase.vault_db import init_engine
 
 settings = get_settings()
 job_store.configure(settings.max_retained_jobs)
+init_engine(settings.database_url, settings.database_read_url)
 
 app = FastAPI(
     title="nano-sandbox remote engine",

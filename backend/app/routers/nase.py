@@ -1,11 +1,11 @@
-"""NASE HTTP surface: 25-engine vectors, S_attest verify, durable vault-sync.
+"""NASE HTTP surface: TEE-sealed vectors, S_attest, SQLAlchemy vault-sync, rotation status.
 
 Evidence classification
 -----------------------
-- Endpoints wrap Partially Verified engine_vectors + attestation modules.
-- φ_k are registry-derived diagnostic scalars, not Secure-Enclave internals.
-- Vault-sync uses SQLite (durable across process restart); server stores
-  ciphertext only and cannot decrypt.
+- Endpoints wrap Partially Verified modules (engine_vectors, attestation, kms,
+  secret_rotation, vault_db).
+- Physical multi-region Postgres / cloud KMS / live OIDC JWKS: Missing until
+  environment credentials are provisioned; architecture is ready.
 """
 
 from __future__ import annotations
@@ -17,32 +17,24 @@ from pydantic import BaseModel, Field
 
 from app.config import Settings, get_settings
 from app.nase.attestation import (
-    issue_nonce,
     issue_nonce_with_vectors,
     verify_attestation,
     vault_sync_put,
     vault_sync_get,
-    get_vault_db_path,
+    vault_sync_count,
 )
 from app.nase.engine_vectors import export_engine_snapshot
 from app.nase.invariants import DEFAULT_DELTA_SECONDS
+from app.nase.secret_rotation import get_rotator
 
 router = APIRouter(prefix="/nase", tags=["nase"])
 
 
 class VerifyBody(BaseModel):
-    attestation_timestamp: float | None = Field(
-        default=None, description="Client attestation wall-clock (seconds)."
-    )
+    attestation_timestamp: float | None = None
     nonce: str | None = None
-    client_s_attest: str | None = Field(
-        default=None,
-        description="SHA-256 hex of nonce|weighted_sum (25-engine equation).",
-    )
-    client_binding_hash: str | None = Field(
-        default=None,
-        description="Legacy alias for client_s_attest.",
-    )
+    client_s_attest: str | None = None
+    client_binding_hash: str | None = None
     extra_material: str | None = None
     delta_seconds: float = DEFAULT_DELTA_SECONDS
     require_nonce: bool = True
@@ -51,33 +43,34 @@ class VerifyBody(BaseModel):
 
 class VaultSyncBody(BaseModel):
     ciphertext_b64: str
-    content_hash: str = Field(..., description="Client content hash (hex) of plaintext.")
+    content_hash: str
     session_hint: str | None = None
-    identity_hint: str | None = Field(
-        default=None,
-        description="Non-secret identity fingerprint (e.g. hash of token id); never a key.",
-    )
+    identity_hint: str | None = None
 
 
 @router.post("/nonce")
 @router.get("/nonce")
 def nase_nonce(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
-    """Issue single-use nonce bound to signed 25-engine vector snapshot + S_attest."""
-    return issue_nonce_with_vectors(settings.attestation_secret)
+    return issue_nonce_with_vectors(
+        settings.kms_seed,
+        rotation_seconds=settings.hmac_rotation_seconds,
+        grace_seconds=settings.hmac_grace_seconds,
+        kms_provider=settings.kms_provider,
+    )
 
 
 @router.get("/engine-vectors")
 def nase_engine_vectors(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
-    """Export current signed φ_k / ω_k snapshot for all registered validators."""
-    return export_engine_snapshot(settings.attestation_secret)
+    return export_engine_snapshot(
+        settings.kms_seed,
+        rotation_seconds=settings.hmac_rotation_seconds,
+        grace_seconds=settings.hmac_grace_seconds,
+        kms_provider=settings.kms_provider,
+    )
 
 
 @router.post("/verify")
 def nase_verify(body: VerifyBody, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
-    """Verify freshness + nonce + S_attest = H(N || sum(ω·φ)).
-
-    Fail-closed → HTTP 401/403 so nnacc-v2 can lock vault UI.
-    """
     result = verify_attestation(
         attestation_timestamp=body.attestation_timestamp,
         nonce=body.nonce,
@@ -87,7 +80,7 @@ def nase_verify(body: VerifyBody, settings: Settings = Depends(get_settings)) ->
         delta_seconds=body.delta_seconds,
         require_nonce=body.require_nonce,
         require_s_attest=body.require_s_attest,
-        attestation_secret=settings.attestation_secret,
+        attestation_secret=settings.kms_seed,
     )
     if not result["ok"]:
         raise HTTPException(status_code=int(result.get("http_hint") or 401), detail=result)
@@ -96,7 +89,6 @@ def nase_verify(body: VerifyBody, settings: Settings = Depends(get_settings)) ->
 
 @router.post("/vault-sync")
 def nase_vault_sync(body: VaultSyncBody) -> dict[str, Any]:
-    """Accept encrypted vault blob. Server stores ciphertext only (never decrypts)."""
     try:
         return vault_sync_put(
             body.ciphertext_b64,
@@ -117,12 +109,28 @@ def nase_vault_sync_get(blob_id: str) -> dict[str, Any]:
 
 
 @router.get("/vault-sync-status")
-def nase_vault_status() -> dict[str, Any]:
-    from app.nase.attestation import vault_sync_count
-
+def nase_vault_status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     return {
         "durable": True,
-        "backend": "sqlite",
-        "path": get_vault_db_path(),
+        "backend": "sqlalchemy",
+        "database_url_scheme": settings.database_url.split(":", 1)[0],
+        "read_replica_configured": bool(settings.database_read_url),
         "count": vault_sync_count(),
+    }
+
+
+@router.post("/rotate-hmac")
+def nase_rotate_hmac(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Force HMAC secret rotation (ops / test endpoint)."""
+    rotator = get_rotator(
+        settings.kms_seed,
+        settings.hmac_rotation_seconds,
+        settings.hmac_grace_seconds,
+    )
+    ver = rotator.force_rotate()
+    return {
+        "rotated": True,
+        "version_id": ver.version_id,
+        "activated_at": ver.activated_at,
+        "grace_seconds": settings.hmac_grace_seconds,
     }
