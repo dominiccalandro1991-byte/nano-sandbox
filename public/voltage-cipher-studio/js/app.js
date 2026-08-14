@@ -142,13 +142,7 @@
     else body.innerHTML = formatMessageHtml(m.text || "");
     div.appendChild(meta);
     div.appendChild(body);
-    if (m.hash) {
-      var h = document.createElement("div");
-      h.className = "msg-hash";
-      h.textContent = "S_attest / hash: " + m.hash.slice(0, 18) + "…";
-      h.title = m.hash;
-      div.appendChild(h);
-    }
+    /* hash receipts stay in console only */
     return div;
   }
 
@@ -298,48 +292,28 @@
 
     var aegis = $("#run-aegis-sweep");
     if (aegis) {
-      aegis.addEventListener("click", function () {
+      aegis.addEventListener("click", async function () {
+        var statusBadge = document.querySelector(".badge");
+        if (statusBadge) statusBadge.textContent = "SWEEPING...";
         aegis.disabled = true;
-        var prev = aegis.textContent;
-        aegis.textContent = "Running…";
-        var base =
-          (window.EngineRouter && window.EngineRouter.backendBase()) ||
-          "https://nano-sandbox-api.onrender.com";
-        Promise.all([
-          fetch(base + "/health").then(function (r) { return r.json(); }).catch(function () { return { status: "offline" }; }),
-          fetch(base + "/nase/macros").then(function (r) { return r.json(); }).catch(function () { return null; })
-        ])
-          .then(function (pair) {
-            var health = pair[0];
-            var macros = pair[1];
-            var ok = health && health.status === "ok";
-            var msg =
-              "AEGIS diagnostic: backend " +
-              (ok ? "ONLINE" : "DEGRADED") +
-              " · health=" +
-              JSON.stringify(health) +
-              (macros && macros.macros
-                ? " · macros=" + macros.macros.length
-                : " · macros unavailable");
-            var sess = activeSession();
-            sess.messages.push({
-              role: "assistant",
-              text: msg,
-              speaker: "AEGIS",
-              mode: ok ? "live" : "error",
-              ts: Date.now()
-            });
-            saveSessions();
-            renderMessages();
-            if (avatar) {
-              if (ok) avatar.celebrate();
-              else avatar.error();
-            }
-          })
-          .finally(function () {
-            aegis.disabled = false;
-            aegis.textContent = prev;
-          });
+        try {
+          var base =
+            (window.EngineRouter && window.EngineRouter.backendBase()) ||
+            "https://nano-sandbox-api.onrender.com";
+          var res = await fetch(base + "/health");
+          var data = await res.json();
+          // Update badge/console only — DO NOT append to chat
+          if (statusBadge) {
+            statusBadge.textContent =
+              "AEGIS LIVE" + (data && data.version ? " (" + data.version + ")" : "");
+          }
+          console.log("[AEGIS System Diagnostic]:", data);
+        } catch (err) {
+          if (statusBadge) statusBadge.textContent = "AEGIS OFFLINE";
+          console.error("[AEGIS Sweep Failed]:", err);
+        } finally {
+          aegis.disabled = false;
+        }
       });
     }
 

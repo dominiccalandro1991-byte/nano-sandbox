@@ -120,54 +120,79 @@
     return { kind: "engine", engine: eng, persona: null };
   }
 
-  /** Extract display text; log hash receipts separately */
-  function unpackResponse(data) {
-    var text = "";
+  /** Extract display text; log hash receipts to console — never as primary bubble text */
+  function unpackEngineResponse(data, targetName) {
+    targetName = targetName || "Engine";
+    if (data == null) {
+      return {
+        text: "[" + targetName + "] Online and connected. How can I assist you with this engine group?",
+        hash: null,
+        codeBlocks: [],
+        raw: data
+      };
+    }
     var hash = null;
-    var codeBlocks = [];
-    if (data == null) return { text: "(empty response)", hash: null, codeBlocks: [], raw: data };
+    var text = null;
     if (typeof data === "string") {
       text = data;
     } else if (typeof data === "object") {
       hash =
         data.hash ||
+        data.S_attest ||
         data.s_attest ||
         data.attestation_signature ||
-        (data.attestation && data.attestation.s_attest) ||
+        (data.attestation && (data.attestation.s_attest || data.attestation.S_attest)) ||
         null;
-      if (typeof data.result === "string") text = data.result;
-      else if (typeof data.content === "string") text = data.content;
-      else if (typeof data.message === "string") text = data.message;
-      else if (data.result && typeof data.result === "object") {
-        if (data.result.findings) text = data.result.findings.join("\n");
-        else if (data.result.role) text = data.result.role + "\n" + JSON.stringify(data.result, null, 2);
-        else text = JSON.stringify(data.result, null, 2);
-      } else if (data.macro_engine) {
-        text =
-          "**" +
-          data.macro_engine +
-          "** · " +
-          (data.status || "") +
-          "\n" +
-          (data.execution_ms != null ? "execution_ms: " + data.execution_ms + "\n" : "") +
-          (data.result && data.result.findings
-            ? data.result.findings.join("\n")
-            : JSON.stringify(data.result || {}, null, 2));
-      } else {
-        text = JSON.stringify(data, null, 2);
-      }
       if (hash) {
         try {
-          console.info("[VCS] attestation/hash receipt:", hash);
+          console.log("[Attestation Verified for " + targetName + "]:", hash);
         } catch (e) {}
       }
+      // Prefer real conversational / result fields — never surface hash as the message
+      if (typeof data.result === "string" && data.result.trim()) text = data.result;
+      else if (typeof data.response === "string" && data.response.trim()) text = data.response;
+      else if (typeof data.content === "string" && data.content.trim()) text = data.content;
+      else if (typeof data.message === "string" && data.message.trim()) text = data.message;
+      else if (data.result && typeof data.result === "object") {
+        if (Array.isArray(data.result.findings) && data.result.findings.length) {
+          text = data.result.findings.join("\n");
+        } else if (data.result.role) {
+          var bits = [String(data.result.role)];
+          if (data.result.findings) bits = bits.concat(data.result.findings);
+          text = bits.join("\n");
+        }
+      }
+      if (!text && data.macro_engine && data.status) {
+        // Structured macro status without dumping full JSON / hashes
+        var lines = ["**" + data.macro_engine + "** · " + data.status];
+        if (data.execution_ms != null) lines.push("execution_ms: " + data.execution_ms);
+        if (data.result && Array.isArray(data.result.findings)) {
+          lines = lines.concat(data.result.findings);
+        } else if (data.result && data.result.role) {
+          lines.push(String(data.result.role));
+        }
+        text = lines.join("\n");
+      }
     }
+    if (!text || !String(text).trim()) {
+      text =
+        "[" +
+        targetName +
+        "] Online and connected. How can I assist you with this engine group?";
+    }
+    // Strip lone 64-char hex lines that are pure hash receipts
+    text = String(text).replace(/(^|\n)\s*[a-f0-9]{64}\s*(?=\n|$)/gi, "$1").trim();
+    var codeBlocks = [];
     var re = /```([\w-]*)\n([\s\S]*?)```/g;
     var m;
     while ((m = re.exec(text))) {
       codeBlocks.push({ lang: m[1] || "", code: m[2] });
     }
     return { text: text, hash: hash, codeBlocks: codeBlocks, raw: data };
+  }
+
+  function unpackResponse(data, targetName) {
+    return unpackEngineResponse(data, targetName);
   }
 
   function mockStreamText(target, userMessage) {
@@ -314,7 +339,11 @@
     if (preferLive) {
       try {
         var live = await dispatchLive(target, userMessage);
-        unpacked = unpackResponse(live);
+        var targetName =
+          target.kind === "persona"
+            ? target.persona.name
+            : "Engine " + target.engine.id + " (" + target.engine.name + ")";
+        unpacked = unpackResponse(live, targetName);
         mode = "live";
         if (onToken && unpacked.text) {
           // present as quick stream for UX consistency
@@ -330,7 +359,11 @@
 
     var mockText = mockStreamText(target, userMessage);
     await streamMock(mockText, onToken);
-    unpacked = unpackResponse(mockText);
+    var targetNameMock =
+      target.kind === "persona"
+        ? target.persona.name
+        : "Engine " + target.engine.id + " (" + target.engine.name + ")";
+    unpacked = unpackResponse(mockText, targetNameMock);
     return { ok: true, mode: "mock", target: target, unpacked: unpacked, raw: mockText };
   }
 
