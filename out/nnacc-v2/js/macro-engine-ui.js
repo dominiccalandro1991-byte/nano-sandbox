@@ -60,6 +60,9 @@
 
   function backendBase() {
     try {
+      if (typeof window !== "undefined" && window.__NNACC_REMOTE__ && /^https?:\/\//i.test(window.__NNACC_REMOTE__)) {
+        return String(window.__NNACC_REMOTE__).replace(/\/$/, "");
+      }
       var stored = localStorage.getItem("nnacc-v2-remote") || "";
       if (stored && /^https?:\/\//i.test(stored)) return stored.replace(/\/$/, "");
     } catch (e) {}
@@ -153,6 +156,21 @@
       .replace(/"/g, "&quot;");
   }
 
+  function assertMacroCoverage(macros) {
+    var ids = [];
+    (macros || []).forEach(function (m) {
+      (m.engine_ids || []).forEach(function (id) { ids.push(id); });
+    });
+    var uniq = {};
+    ids.forEach(function (id) { uniq[id] = true; });
+    var ok = ids.length === 25 && Object.keys(uniq).length === 25;
+    var statusEl = document.getElementById("macro-backend-status");
+    if (statusEl && !ok && (macros || []).length) {
+      statusEl.textContent = "Coverage desync: " + ids.length + " ids / " + Object.keys(uniq).length + " unique (expected 25)";
+      statusEl.className = "backend-status offline";
+    }
+    return ok;
+  }
   function buildMacroGrid(registry) {
     var grid = document.getElementById("macro-engine-grid");
     if (!grid) return;
@@ -240,7 +258,12 @@
     card.querySelectorAll("[data-field]").forEach(function (input) {
       var k = input.getAttribute("data-field");
       var v = input.value;
-      if (input.type === "number" && v !== "") v = Number(v);
+      if (input.type === "number") {
+        if (v === "" || v == null) return;
+        payload[k] = Number(v);
+        return;
+      }
+      if (v === "") return;
       payload[k] = v;
     });
     return payload;
@@ -339,7 +362,7 @@
     var statusEl = document.getElementById("macro-backend-status");
     try {
       var data = await getMacros();
-      buildMacroGrid(data);
+      assertMacroCoverage(data.macros || []); buildMacroGrid(data);
       if (statusEl) {
         statusEl.textContent = "Backend online · " + backendBase();
         statusEl.className = "backend-status online";
