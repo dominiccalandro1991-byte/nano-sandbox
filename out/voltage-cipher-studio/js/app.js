@@ -107,8 +107,8 @@
     if (!list) return;
     var sess = activeSession();
     list.innerHTML = "";
-    (sess.messages || []).forEach(function (m) {
-      list.appendChild(buildBubble(m));
+    (sess.messages || []).forEach(function (m, idx) {
+      list.appendChild(buildBubble(m, idx));
     });
     list.scrollTop = list.scrollHeight;
     list.querySelectorAll(".copy-code-btn").forEach(function (btn) {
@@ -127,23 +127,89 @@
     });
   }
 
-  function buildBubble(m) {
+  function buildBubble(m, index) {
     var div = document.createElement("div");
-    div.className = "msg msg-" + (m.role || "assistant");
+    div.className = "msg msg-" + (m.role || "assistant") + (m.failed ? " msg-failed" : "");
+    div.dataset.msgIndex = String(index != null ? index : "");
     var meta = document.createElement("div");
     meta.className = "msg-meta";
     meta.textContent =
       (m.role === "user" ? "You" : m.speaker || "Studio") +
       (m.mode ? " · " + m.mode : "") +
-      (m.hash ? " · hash logged" : "");
+      (m.model ? " · " + m.model.split("/").pop() : "");
     var body = document.createElement("div");
     body.className = "msg-body";
     if (m.role === "user") body.textContent = m.text || "";
     else body.innerHTML = formatMessageHtml(m.text || "");
+    var actions = document.createElement("div");
+    actions.className = "msg-actions";
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "msg-action-btn msg-copy-btn";
+    copyBtn.title = "Copy message";
+    copyBtn.setAttribute("aria-label", "Copy message");
+    copyBtn.innerHTML = "📋";
+    copyBtn.addEventListener("click", function () {
+      var t = m.text || "";
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(t).then(function () {
+          copyBtn.textContent = "✓";
+          setTimeout(function () {
+            copyBtn.innerHTML = "📋";
+          }, 1000);
+        });
+      }
+    });
+    actions.appendChild(copyBtn);
+    if (m.role === "assistant" || m.failed) {
+      var retryBtn = document.createElement("button");
+      retryBtn.type = "button";
+      retryBtn.className = "msg-action-btn msg-retry-btn";
+      retryBtn.title = "Retry / regenerate";
+      retryBtn.setAttribute("aria-label", "Retry generation");
+      retryBtn.innerHTML = "↻";
+      retryBtn.addEventListener("click", function () {
+        retryFromMessage(index);
+      });
+      actions.appendChild(retryBtn);
+    }
     div.appendChild(meta);
     div.appendChild(body);
-    /* hash receipts stay in console only */
+    div.appendChild(actions);
     return div;
+  }
+
+  function retryFromMessage(index) {
+    var sess = activeSession();
+    if (!sess || streaming) return;
+    var msgs = sess.messages || [];
+    var i = Number(index);
+    if (isNaN(i) || i < 0 || i >= msgs.length) return;
+    // Find nearest user prompt at or before this index
+    var userText = null;
+    for (var j = i; j >= 0; j--) {
+      if (msgs[j].role === "user") {
+        userText = msgs[j].text;
+        break;
+      }
+    }
+    if (!userText) return;
+    // Drop this assistant message and anything after the user turn's following assistants
+    // Simpler: remove from the user message's next index onward, then resend
+    var userIdx = -1;
+    for (var k = i; k >= 0; k--) {
+      if (msgs[k].role === "user" && msgs[k].text === userText) {
+        userIdx = k;
+        break;
+      }
+    }
+    if (userIdx < 0) return;
+    sess.messages = msgs.slice(0, userIdx);
+    saveSessions();
+    renderMessages();
+    var input = $("#composer-input");
+    if (input) input.value = userText;
+    handleSend();
   }
 
   function updatePersonaStage(targetKey) {
@@ -183,20 +249,35 @@
     saveSessions();
 
     streaming = true;
-    if (avatar) avatar.thinking();
+    var modelEl = $("#model-select");
+    var modelId =
+      (modelEl && modelEl.value) ||
+      (window.EngineRouter && window.EngineRouter.DEFAULT_MODEL) ||
+      "google/gemma-4-26b-a4b-it:free";
+    try {
+      localStorage.setItem("vcs-model", modelId);
+    } catch (e) {}
+    if (avatar) {
+      if (targetKey.indexOf("persona:") === 0) {
+        avatar.setArtist(targetKey.slice(8));
+      }
+      avatar.isThinking();
+    }
     var assistant = {
       role: "assistant",
       text: "",
       speaker: "…",
       mode: "",
       hash: null,
+      model: modelId,
+      failed: false,
       ts: Date.now()
     };
     sess.messages.push(assistant);
     renderMessages();
 
     var onToken = function (chunk) {
-      if (avatar && avatar.state !== "BUILDING") avatar.building();
+      if (avatar) avatar.isStreaming();
       assistant.text += chunk;
       var list = $("#message-list");
       var last = list && list.querySelector(".msg-assistant:last-child .msg-body");
@@ -205,20 +286,36 @@
     };
 
     try {
+      var history = (sess.messages || [])
+        .filter(function (m) {
+          return m !== assistant && (m.role === "user" || m.role === "assistant") && m.text;
+        })
+        .slice(-12)
+        .map(function (m) {
+          return { role: m.role, content: m.text };
+        });
+      // last user is already being sent as userMessage — drop trailing duplicate if present
       var result = await window.EngineRouter.sendMessage(targetKey, text, {
         onToken: onToken,
-        preferLive: true
+        preferLive: true,
+        model: modelId,
+        history: history.filter(function (m, idx, arr) {
+          return !(idx === arr.length - 1 && m.role === "user" && m.content === text);
+        })
       });
       assistant.text = (result.unpacked && result.unpacked.text) || assistant.text;
       assistant.hash = (result.unpacked && result.unpacked.hash) || null;
       assistant.mode = result.mode;
+      assistant.model = result.model || modelId;
+      assistant.failed = false;
       if (result.target.kind === "persona") assistant.speaker = result.target.persona.name;
       else assistant.speaker = result.target.engine.label;
-      if (avatar) avatar.celebrate();
+      if (avatar) avatar.onSuccess({ mode: result.mode, model: assistant.model });
     } catch (err) {
       assistant.text = "Fault: " + (err && err.message ? err.message : String(err));
       assistant.mode = "error";
-      if (avatar) avatar.error();
+      assistant.failed = true;
+      if (avatar) avatar.onError({ message: assistant.text });
       setTimeout(function () {
         if (avatar) avatar.idle();
       }, 2500);
@@ -254,8 +351,24 @@
       select.value = "persona:vail-cipher";
       select.addEventListener("change", function () {
         updatePersonaStage(select.value);
+        if (avatar && select.value.indexOf("persona:") === 0) {
+          avatar.setArtist(select.value.slice(8));
+        }
       });
       updatePersonaStage(select.value);
+    }
+    var modelSelect = $("#model-select");
+    if (modelSelect && window.EngineRouter) {
+      modelSelect.innerHTML = window.EngineRouter.modelSelectOptionsHtml();
+      var savedModel = null;
+      try {
+        savedModel = localStorage.getItem("vcs-model");
+      } catch (e) {}
+      modelSelect.value =
+        savedModel || window.EngineRouter.DEFAULT_MODEL || "google/gemma-4-26b-a4b-it:free";
+      if (![].slice.call(modelSelect.options).some(function (o) { return o.value === modelSelect.value; })) {
+        modelSelect.value = window.EngineRouter.DEFAULT_MODEL;
+      }
     }
 
     var sendBtn = $("#send-btn");

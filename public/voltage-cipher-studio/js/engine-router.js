@@ -7,6 +7,17 @@
 
   var DEFAULT_BACKEND = "https://nano-sandbox-api.onrender.com";
 
+  var FREE_MODELS = [
+    { id: "poolside/laguna-s-2.1:free", label: "Laguna S 2.1 (Lead Architect)", category: "coding_pro", categoryLabel: "Coding Pro (Free)" },
+    { id: "poolside/laguna-xs-2.1:free", label: "Laguna XS 2.1 (Fast Iteration)", category: "coding_pro", categoryLabel: "Coding Pro (Free)" },
+    { id: "openai/gpt-oss-20b:free", label: "GPT-OSS 20B (Code Reviewer)", category: "coding_pro", categoryLabel: "Coding Pro (Free)" },
+    { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "Nemotron 3 Ultra (Deep Reasoning)", category: "general", categoryLabel: "General Chat & Reasoning (Free)" },
+    { id: "nvidia/nemotron-3-super-120b-a12b:free", label: "Nemotron 3 Super (Balanced)", category: "general", categoryLabel: "General Chat & Reasoning (Free)" },
+    { id: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B (Generalist)", category: "general", categoryLabel: "General Chat & Reasoning (Free)" }
+  ];
+
+  var DEFAULT_MODEL = "google/gemma-4-26b-a4b-it:free";
+
   var ENGINE_REGISTRY = [
     { id: 1, name: "soft-body-physics", group: "research", label: "E1 · Soft Body Physics" },
     { id: 2, name: "multi-agent-interaction", group: "research", label: "E2 · Multi-Agent Interaction" },
@@ -328,6 +339,63 @@
    * Primary entry: route message, prefer live backend, fall back to mock stream.
    * onToken(chunk) called during mock stream; live returns full unpack at end.
    */
+  
+  async function chatLLM(modelId, messages, opts) {
+    opts = opts || {};
+    var base = backendBase();
+    var res = await fetch(base + "/llm/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        model: modelId || DEFAULT_MODEL,
+        messages: messages,
+        persona: opts.persona || null,
+        engine_id: opts.engineId != null ? opts.engineId : null,
+        temperature: opts.temperature != null ? opts.temperature : 0.7,
+        max_tokens: opts.maxTokens != null ? opts.maxTokens : 2048
+      })
+    });
+    var body = null;
+    try {
+      body = await res.json();
+    } catch (e) {
+      body = { error: "non_json", status: res.status };
+    }
+    if (!res.ok) {
+      var err = new Error(
+        (body && body.detail && (body.detail.message || JSON.stringify(body.detail))) ||
+          "LLM HTTP " + res.status
+      );
+      err.status = res.status;
+      err.body = body;
+      throw err;
+    }
+    return body;
+  }
+
+  function modelSelectOptionsHtml() {
+    var html = "";
+    var cats = [
+      { key: "coding_pro", label: "Coding Pro (Free)" },
+      { key: "general", label: "General Chat & Reasoning (Free)" }
+    ];
+    cats.forEach(function (c) {
+      html += '<optgroup label="' + c.label + '">';
+      FREE_MODELS.filter(function (m) {
+        return m.category === c.key;
+      }).forEach(function (m) {
+        html +=
+          '<option value="' +
+          m.id +
+          '">' +
+          m.label +
+          "</option>";
+      });
+      html += "</optgroup>";
+    });
+    return html;
+  }
+
   async function sendMessage(targetKey, userMessage, opts) {
     opts = opts || {};
     var onToken = opts.onToken || null;
@@ -335,6 +403,31 @@
     var target = resolveTarget(targetKey);
     var mode = "mock";
     var unpacked;
+    var targetName =
+      target.kind === "persona"
+        ? target.persona.name
+        : "Engine " + target.engine.id + " (" + target.engine.name + ")";
+
+    // Prefer OpenRouter via backend /llm/chat when model is selected
+    if (preferLive && opts.model) {
+      try {
+        var history = opts.history || [];
+        var msgs = history.concat([{ role: "user", content: userMessage }]);
+        var llm = await chatLLM(opts.model, msgs, {
+          persona: target.kind === "persona" ? target.persona.id : null,
+          engineId: target.kind === "engine" ? target.engine.id : null
+        });
+        unpacked = unpackResponse(llm, targetName);
+        mode = "llm";
+        if (onToken && unpacked.text) await streamMock(unpacked.text, onToken);
+        return { ok: true, mode: mode, target: target, unpacked: unpacked, raw: llm, model: opts.model };
+      } catch (llmErr) {
+        try {
+          console.warn("[VCS] LLM path failed, falling back", llmErr);
+        } catch (e) {}
+        if (opts.requireLlm) throw llmErr;
+      }
+    }
 
     if (preferLive) {
       try {
@@ -398,11 +491,16 @@
     ENGINE_REGISTRY: ENGINE_REGISTRY,
     PERSONAS: PERSONAS,
     GROUP_LABELS: GROUP_LABELS,
+    FREE_MODELS: FREE_MODELS,
+    DEFAULT_MODEL: DEFAULT_MODEL,
     backendBase: backendBase,
     resolveTarget: resolveTarget,
     unpackResponse: unpackResponse,
+    unpackEngineResponse: unpackEngineResponse,
     sendMessage: sendMessage,
+    chatLLM: chatLLM,
     listSelectOptions: listSelectOptions,
+    modelSelectOptionsHtml: modelSelectOptionsHtml,
     mockStreamText: mockStreamText
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -552,3 +552,63 @@ body {
     display: none;
   }
 }
+
+
+/* Message actions: copy + retry */
+.msg {
+  position: relative;
+  padding-right: 52px;
+}
+.msg-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.msg-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(10, 12, 16, 0.85);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.msg-action-btn:hover {
+  border-color: var(--nominal);
+  color: var(--nominal);
+}
+.msg-retry-btn:hover {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.msg-failed {
+  border-color: rgba(255, 51, 102, 0.45);
+}
+#model-select {
+  max-width: 100%;
+  min-width: min(100%, 200px);
+  flex: 1 1 180px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+}
+.persona-asset {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+#persona-stage[data-artist] {
+  transition: border-color 0.25s, box-shadow 0.25s;
+}

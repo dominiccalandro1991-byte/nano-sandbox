@@ -56,9 +56,26 @@ class Settings(BaseSettings):
     hmac_rotation_seconds: float = 3600.0
     hmac_grace_seconds: float = 300.0
 
+    # OpenRouter — NEVER commit the real key. Set NANO_SANDBOX_OPENROUTER_API_KEY
+    # or OPENROUTER_API_KEY in the Render/host environment.
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_default_model: str = "google/gemma-4-26b-a4b-it:free"
+    openrouter_http_referer: str = "https://dominiccalandro1991-byte.github.io/nano-sandbox/"
+    openrouter_app_title: str = "Voltage Cipher Studio"
+
     supabase_project_ref: str = SUPABASE_PROJECT_REF
     supabase_host: str = SUPABASE_HOST
 
 
 def get_settings() -> Settings:
     return Settings()
+
+
+def resolved_openrouter_key(settings: Settings | None = None) -> str:
+    """Resolve API key from Settings or unprefixed OPENROUTER_API_KEY env."""
+    s = settings or get_settings()
+    key = (s.openrouter_api_key or "").strip()
+    if key:
+        return key
+    return (os.environ.get("OPENROUTER_API_KEY") or "").strip()
