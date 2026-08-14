@@ -36,3 +36,8 @@ backend/.pytest_cache/
 backend/data/
 *.sqlite
 
+
+.env
+backend/.env
+*.db
+

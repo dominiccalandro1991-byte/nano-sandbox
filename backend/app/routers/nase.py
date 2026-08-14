@@ -110,12 +110,21 @@ def nase_vault_sync_get(blob_id: str) -> dict[str, Any]:
 
 @router.get("/vault-sync-status")
 def nase_vault_status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    from app.nase import vault_db
+    try:
+        st = vault_db.status()
+    except Exception as exc:  # noqa: BLE001
+        st = {"initialized": False, "last_init_error": str(exc), "count": None}
     return {
         "durable": True,
         "backend": "sqlalchemy",
+        "table": "nase_vault_blobs",
         "database_url_scheme": settings.database_url.split(":", 1)[0],
+        "supabase_project_ref": settings.supabase_project_ref,
+        "supabase_host": settings.supabase_host,
         "read_replica_configured": bool(settings.database_read_url),
-        "count": vault_sync_count(),
+        "vault": st,
+        "count": st.get("count"),
     }
 
 

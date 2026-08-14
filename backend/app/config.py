@@ -1,12 +1,37 @@
-"""Runtime configuration.
+"""Runtime configuration for nano-sandbox / NASE.
 
-Evidence: settings are Partially Verified operational knobs. Cloud KMS ARNs,
-multi-region Postgres clusters, and live OIDC client secrets are supplied by
-the deployment environment (Missing until configured).
+Supabase (project ref sujvxxrwjqsziswuazwm):
+  Set NANO_SANDBOX_DATABASE_URL to a SQLAlchemy URL, e.g.:
+    postgresql+psycopg://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:6543/postgres
+  or direct:
+    postgresql+psycopg://postgres:<PASSWORD>@db.<ref>.supabase.co:5432/postgres?sslmode=require
+
+Evidence: host DNS Verified for sujvxxrwjqsziswuazwm.supabase.co.
+Password / full URI must come from environment (never commit secrets).
 """
 from __future__ import annotations
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Documented Supabase project host (no credentials).
+SUPABASE_PROJECT_REF = "sujvxxrwjqsziswuazwm"
+SUPABASE_HOST = f"{SUPABASE_PROJECT_REF}.supabase.co"
+
+
+def _default_database_url() -> str:
+    """Prefer explicit env; else safe local SQLite for tests/dev."""
+    for key in ("NANO_SANDBOX_DATABASE_URL", "DATABASE_URL"):
+        val = os.environ.get(key, "").strip()
+        if val:
+            # Normalize postgres:// → postgresql+psycopg:// for SQLAlchemy 2 + psycopg3
+            if val.startswith("postgres://"):
+                val = "postgresql+psycopg://" + val[len("postgres://") :]
+            elif val.startswith("postgresql://") and "+psycopg" not in val:
+                val = "postgresql+psycopg://" + val[len("postgresql://") :]
+            return val
+    return "sqlite:////tmp/nano-sandbox-nase-vault.db"
 
 
 class Settings(BaseSettings):
@@ -17,27 +42,22 @@ class Settings(BaseSettings):
     job_memory_limit_bytes: int = 512 * 1024 * 1024
     max_retained_jobs: int = 500
 
-    # Primary DB URL. Prefer PostgreSQL in production, e.g.:
-    #   postgresql+psycopg://user:pass@host:5432/nase
-    # Tests default to SQLite so CI needs no external cluster.
-    database_url: str = "sqlite:////tmp/nano-sandbox-nase-vault.db"
-
-    # Optional read-replica URL for multi-region read path (Partially Verified architecture).
+    # Resolved at settings construction from env (see _default_database_url).
+    database_url: str = _default_database_url()
     database_read_url: str | None = None
 
-    # Seed material for Software TEE / rotation manager when cloud KMS is not configured.
-    # Production should set NANO_SANDBOX_KMS_SEED or wire CloudKMSProvider.
     kms_seed: str = "nano-sandbox-dev-kms-seed-change-me"
-    kms_provider: str = "software_tee"  # software_tee | cloud_kms_stub
+    kms_provider: str = "software_tee"
 
-    # OIDC (federated identity) — optional; client may present JWT for key derivation.
     oidc_issuer: str | None = None
     oidc_audience: str | None = None
     oidc_jwks_url: str | None = None
 
-    # HMAC rotation interval seconds (dynamic secret management)
     hmac_rotation_seconds: float = 3600.0
     hmac_grace_seconds: float = 300.0
+
+    supabase_project_ref: str = SUPABASE_PROJECT_REF
+    supabase_host: str = SUPABASE_HOST
 
 
 def get_settings() -> Settings:

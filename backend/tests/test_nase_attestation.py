@@ -221,3 +221,15 @@ def test_existing_freshness_predicate_still_holds():
     assert ok is True
     ok, _ = check_attestation_freshness(now - 60.0, now, delta_seconds=30.0)
     assert ok is False
+
+def test_vault_put_uses_nase_vault_blobs_table(tmp_path):
+    reset_engine()
+    db = tmp_path / "vault2.db"
+    init_engine(f"sqlite:///{db}")
+    put = vault_put("QQ==", "hash1", identity_hint="subj")
+    assert put.get("table") == "nase_vault_blobs"
+    assert put.get("id")
+    got = vault_get(put["id"])
+    assert got is not None
+    assert got["user_subject_hash"] == "subj"
+

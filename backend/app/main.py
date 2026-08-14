@@ -22,7 +22,18 @@ from app.nase.vault_db import init_engine
 
 settings = get_settings()
 job_store.configure(settings.max_retained_jobs)
-init_engine(settings.database_url, settings.database_read_url)
+
+# Auto-migrate nase_vault_blobs on startup. Failures are recorded but do not
+# prevent /health from serving when credentials are Missing in the environment.
+try:
+    init_engine(settings.database_url, settings.database_read_url)
+except Exception as _vault_init_exc:  # noqa: BLE001
+    import logging
+    logging.getLogger("nase.vault").error(
+        "vault_db init failed (scheme=%s): %s",
+        settings.database_url.split(':', 1)[0],
+        _vault_init_exc,
+    )
 
 app = FastAPI(
     title="nano-sandbox remote engine",
