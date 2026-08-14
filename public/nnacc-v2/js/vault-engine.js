@@ -1,20 +1,21 @@
 /**
- * vault-engine.js — Gigabyte-scale IndexedDB File Vault
+ * vault-engine.js — Gigabyte-scale IndexedDB File Vault + volatile-mode mitigation
  *
  * CONNECTIVITY MAP
  * ----------------
  * Aligns NNACC V2 client vault with project BINARY_STORES policy:
  * large file text / blobs → IndexedDB only; session metadata stays on localStorage.
  * DB name: nnacc_vault_db  (object store: files)
- * Invokes navigator.storage.persist() once on init to request durable quota.
+ * Memory-mode: when persist denied / IDB unavailable, queue encrypted blobs to
+ * backend POST /nase/vault-sync (ephemeral store) when Remote URL is configured.
  *
  * Evidence class: Partially Verified
- *   - IndexedDB open/put/get/delete implemented against standard IDB API.
- *   - navigator.storage.persist() and estimate() are best-effort; browser may deny.
- *   - Migration of pre-existing localStorage-embedded file.text is opportunistic
- *     (read-through); full bulk migration not automatic.
- *   - Residual: private-mode / Safari ITP may still quota-limit; in-memory fallback
- *     keeps API alive but is not GB-scale.
+ *   - IndexedDB open/put/get/delete: standard IDB API.
+ *   - navigator.storage.persist() / estimate(): best-effort; private mode often denies.
+ *   - Backend vault-sync: ephemeral in-process store (test_nase_attestation.py);
+ *     not durable multi-tenant storage. Client "encryption" here is Web Crypto
+ *     AES-GCM with a session-ephemeral key (not end-to-end identity crypto).
+ *   - Residual: private-mode still loses data on tab close if remote is offline.
  */
 
 (function (global) {
@@ -24,34 +25,39 @@
   const DB_VERSION = 1;
   const STORE = "files";
 
-  /** @type {IDBDatabase|null} */
   let db = null;
-  /** @type {Map<string, string>} */
   const memoryFallback = new Map();
   let backend = "pending";
-  let persistRequested = false;
+  let persistGranted = false;
+  let volatile = false;
+  let remoteBase = null;
+  let onVolatile = null;
+  const syncQueue = [];
+  let sessionKeyPromise = null;
 
   function openDb() {
-    return new Promise((resolve, reject) => {
+    return new Promise(function (resolve) {
       if (typeof indexedDB === "undefined") {
         backend = "memory";
+        volatile = true;
         resolve(null);
         return;
       }
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
+      req.onupgradeneeded = function () {
         const database = req.result;
         if (!database.objectStoreNames.contains(STORE)) {
           database.createObjectStore(STORE, { keyPath: "id" });
         }
       };
-      req.onsuccess = () => {
+      req.onsuccess = function () {
         db = req.result;
         backend = "indexeddb";
         resolve(db);
       };
-      req.onerror = () => {
+      req.onerror = function () {
         backend = "memory";
+        volatile = true;
         resolve(null);
       };
     });
@@ -62,25 +68,113 @@
     return db;
   }
 
-  async function requestPersist() {
-    if (persistRequested) return;
-    persistRequested = true;
+  async function evaluateStorageQuota() {
+    const result = {
+      persistGranted: false,
+      persisted: false,
+      volatile: false,
+      quota: 0,
+      usage: 0,
+      backend: backend,
+    };
     try {
       if (navigator.storage && navigator.storage.persist) {
-        await navigator.storage.persist();
+        result.persistGranted = await navigator.storage.persist();
+        persistGranted = result.persistGranted;
       }
-    } catch {
-      /* non-fatal */
+      if (navigator.storage && navigator.storage.persisted) {
+        result.persisted = await navigator.storage.persisted();
+      }
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        result.quota = est.quota || 0;
+        result.usage = est.usage || 0;
+      }
+    } catch (e) {
+      result.volatile = true;
+    }
+    await ensureDb();
+    result.backend = backend;
+    if (backend === "memory") {
+      result.volatile = true;
+      volatile = true;
+    }
+    if (result.volatile && typeof onVolatile === "function") {
+      onVolatile(result);
+    }
+    return result;
+  }
+
+  function setRemoteBase(url) {
+    remoteBase = url ? String(url).replace(/\/+$/, "") : null;
+  }
+
+  function setVolatileHandler(fn) {
+    onVolatile = typeof fn === "function" ? fn : null;
+  }
+
+  async function getSessionKey() {
+    if (sessionKeyPromise) return sessionKeyPromise;
+    sessionKeyPromise = (async function () {
+      return crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    })();
+    return sessionKeyPromise;
+  }
+
+  async function encryptText(text) {
+    const key = await getSessionKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      new TextEncoder().encode(text || "")
+    );
+    const packed = new Uint8Array(iv.length + ct.byteLength);
+    packed.set(iv, 0);
+    packed.set(new Uint8Array(ct), iv.length);
+    let bin = "";
+    packed.forEach(function (b) { bin += String.fromCharCode(b); });
+    return btoa(bin);
+  }
+
+  async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str || ""));
+    return Array.from(new Uint8Array(buf)).map(function (b) {
+      return b.toString(16).padStart(2, "0");
+    }).join("");
+  }
+
+  async function syncToBackend(entry) {
+    if (!remoteBase) return null;
+    try {
+      const cipher = await encryptText(entry.text || "");
+      const hash = await sha256Hex(entry.text || "");
+      const res = await fetch(remoteBase + "/nase/vault-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ciphertext_b64: cipher,
+          content_hash: hash,
+          session_hint: entry.id,
+        }),
+      });
+      if (!res.ok) throw new Error("vault-sync HTTP " + res.status);
+      return await res.json();
+    } catch (err) {
+      syncQueue.push({ id: entry.id, error: String(err && err.message || err), at: Date.now() });
+      if (syncQueue.length > 50) syncQueue.shift();
+      return null;
     }
   }
 
-  /**
-   * Put full text payload under file id. Returns true on success.
-   */
   async function putFile(entry) {
     if (!entry || !entry.id) return false;
     await ensureDb();
-    await requestPersist();
+    await evaluateStorageQuota();
     const record = {
       id: entry.id,
       name: entry.name || "untitled",
@@ -89,23 +183,29 @@
       text: entry.text || "",
       ingestedAt: entry.ingestedAt || Date.now(),
     };
+    let ok = false;
     if (backend === "indexeddb" && db) {
-      return new Promise((resolve) => {
+      ok = await new Promise(function (resolve) {
         try {
           const tx = db.transaction(STORE, "readwrite");
           tx.objectStore(STORE).put(record);
-          tx.oncomplete = () => resolve(true);
-          tx.onerror = () => {
-            memoryFallback.set(record.id, record.text);
-            resolve(false);
-          };
-        } catch {
-          memoryFallback.set(record.id, record.text);
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { resolve(false); };
+        } catch (e) {
           resolve(false);
         }
       });
     }
-    memoryFallback.set(record.id, record.text);
+    if (!ok) {
+      memoryFallback.set(record.id, record.text);
+      volatile = true;
+      backend = backend === "indexeddb" ? "hybrid-memory" : "memory";
+      if (typeof onVolatile === "function") {
+        onVolatile({ volatile: true, backend: backend, reason: "idb-put-failed-or-memory" });
+      }
+      await syncToBackend(record);
+      return true;
+    }
     return true;
   }
 
@@ -113,28 +213,21 @@
     if (!id) return null;
     await ensureDb();
     if (backend === "indexeddb" && db) {
-      return new Promise((resolve) => {
+      const fromIdb = await new Promise(function (resolve) {
         try {
           const tx = db.transaction(STORE, "readonly");
           const req = tx.objectStore(STORE).get(id);
-          req.onsuccess = () => {
-            const v = req.result || null;
-            if (v) resolve(v);
-            else if (memoryFallback.has(id)) {
-              resolve({ id, text: memoryFallback.get(id), name: "memory" });
-            } else resolve(null);
-          };
-          req.onerror = () => {
-            if (memoryFallback.has(id)) resolve({ id, text: memoryFallback.get(id) });
-            else resolve(null);
-          };
-        } catch {
-          if (memoryFallback.has(id)) resolve({ id, text: memoryFallback.get(id) });
-          else resolve(null);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { resolve(null); };
+        } catch (e) {
+          resolve(null);
         }
       });
+      if (fromIdb) return fromIdb;
     }
-    if (memoryFallback.has(id)) return { id, text: memoryFallback.get(id) };
+    if (memoryFallback.has(id)) {
+      return { id: id, text: memoryFallback.get(id), name: "memory" };
+    }
     return null;
   }
 
@@ -143,13 +236,13 @@
     await ensureDb();
     memoryFallback.delete(id);
     if (backend === "indexeddb" && db) {
-      return new Promise((resolve) => {
+      await new Promise(function (resolve) {
         try {
           const tx = db.transaction(STORE, "readwrite");
           tx.objectStore(STORE).delete(id);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => resolve();
-        } catch {
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { resolve(); };
+        } catch (e) {
           resolve();
         }
       });
@@ -157,34 +250,33 @@
   }
 
   async function estimate() {
-    try {
-      if (navigator.storage && navigator.storage.estimate) {
-        const e = await navigator.storage.estimate();
-        return {
-          quota: e.quota || 0,
-          usage: e.usage || 0,
-          quotaGB: e.quota != null ? +(e.quota / 1e9).toFixed(3) : null,
-          usageGB: e.usage != null ? +(e.usage / 1e9).toFixed(3) : null,
-          backend,
-        };
-      }
-    } catch {
-      /* fall through */
-    }
-    return { quota: 0, usage: 0, quotaGB: null, usageGB: null, backend };
+    const q = await evaluateStorageQuota();
+    return {
+      quota: q.quota,
+      usage: q.usage,
+      quotaGB: q.quota ? +(q.quota / 1e9).toFixed(3) : null,
+      usageGB: q.usage ? +(q.usage / 1e9).toFixed(3) : null,
+      backend: backend,
+      volatile: volatile || q.volatile,
+      persistGranted: persistGranted || q.persistGranted,
+      persisted: q.persisted,
+    };
   }
 
-  // Eager open + persist request
-  ensureDb().then(() => requestPersist());
+  ensureDb().then(function () { return evaluateStorageQuota(); });
 
   global.VaultEngine = {
-    putFile,
-    getFile,
-    deleteFile,
-    estimate,
-    ensureDb,
-    requestPersist,
-    getBackend: () => backend,
-    DB_NAME,
+    putFile: putFile,
+    getFile: getFile,
+    deleteFile: deleteFile,
+    estimate: estimate,
+    ensureDb: ensureDb,
+    evaluateStorageQuota: evaluateStorageQuota,
+    setRemoteBase: setRemoteBase,
+    setVolatileHandler: setVolatileHandler,
+    getBackend: function () { return backend; },
+    isVolatile: function () { return volatile; },
+    getSyncQueue: function () { return syncQueue.slice(); },
+    DB_NAME: DB_NAME,
   };
 })(typeof window !== "undefined" ? window : globalThis);

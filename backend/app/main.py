@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
-from app.routers import health, jobs, validators
+from app.routers import health, jobs, validators, nase
 
 settings = get_settings()
 job_store.configure(settings.max_retained_jobs)
@@ -43,3 +43,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(validators.router)
 app.include_router(jobs.router)
+app.include_router(nase.router)
