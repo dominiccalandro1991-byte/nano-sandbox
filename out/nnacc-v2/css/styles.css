@@ -252,3 +252,41 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
 .topbar-actions{flex:1 1 auto;justify-content:flex-end;display:flex;flex-wrap:wrap;gap:6px}
 .topbar-title{min-width:0;flex:1 1 12rem}
 .topbar-title h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0}
+
+/* —— NASE-AEGIS (v2.11) —— */
+.aegis-btn{border:1px solid rgba(0,255,157,.35);background:rgba(0,255,157,.1);color:#b8ffe0;font-weight:600}
+.aegis-btn:hover{background:rgba(0,255,157,.2);border-color:#00ff9d}
+.aegis-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.aegis-tab-btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px}
+.aegis-tab-btn.active{background:rgba(0,255,157,.12);color:#00ff9d;border-color:rgba(0,255,157,.35)}
+.aegis-tab-panel{display:none}
+.aegis-tab-panel.active{display:block}
+.aegis-gauge-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.aegis-gauge-row{grid-template-columns:1fr}}
+.aegis-gauge{padding:14px;border-radius:12px;border:1px solid var(--border);background:rgba(2,6,23,.5)}
+.aegis-gauge-label{font-size:12px;color:var(--muted)}
+.aegis-gauge-value{font-size:32px;font-family:var(--font);font-weight:700;margin:6px 0}
+.aegis-gauge-track{height:10px;border-radius:999px;background:rgba(148,163,184,.15);overflow:hidden}
+.aegis-gauge-bar{height:100%;width:0%;background:#00ff9d;transition:width .35s ease,background .35s}
+.aegis-gauge-bar[data-threat="ELEVATED"]{background:#ffb700}
+.aegis-gauge-bar[data-threat="CRITICAL"]{background:#ff3366}
+.view-aegis.aegis-nominal .aegis-gauge-value,.aegis-nominal #aegis-hsys-value{color:#00ff9d;text-shadow:0 0 12px rgba(0,255,157,.35)}
+.aegis-elevated #aegis-hsys-value{color:#ffb700;text-shadow:0 0 12px rgba(255,183,0,.35)}
+.aegis-critical #aegis-hsys-value{color:#ff3366;text-shadow:0 0 14px rgba(255,51,102,.45);animation:aegis-pulse 1.2s ease-in-out infinite}
+@keyframes aegis-pulse{0%,100%{opacity:1}50%{opacity:.65}}
+.aegis-meta-cards{display:flex;flex-direction:column;gap:10px}
+.aegis-meta-card{padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(2,6,23,.45);display:flex;flex-direction:column;gap:4px}
+.aegis-meta-card .lbl{font-size:11px;color:var(--muted)}
+.aegis-meta-card.mono span:last-child{font-family:var(--font);font-size:11px;word-break:break-all}
+.aegis-phi-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.aegis-phi-pill{font-size:11px;padding:4px 8px;border-radius:999px;font-family:var(--font);border:1px solid transparent}
+.aegis-phi-pill.ok{background:rgba(0,255,157,.12);color:#00ff9d;border-color:rgba(0,255,157,.25)}
+.aegis-phi-pill.warn{background:rgba(255,183,0,.12);color:#ffb700;border-color:rgba(255,183,0,.3)}
+.aegis-phi-pill.crit{background:rgba(255,51,102,.12);color:#ff668f;border-color:rgba(255,51,102,.35)}
+.aegis-log{max-height:min(55vh,480px);overflow:auto;font-size:12px;font-family:var(--font);padding:8px;border:1px solid var(--border);border-radius:10px;background:rgba(2,6,23,.55)}
+.aegis-log-line{padding:4px 0;border-bottom:1px solid rgba(148,163,184,.08)}
+.aegis-log-line .ts{color:var(--muted)}
+.aegis-log-line .kind{color:#7dd3fc}
+.aegis-patch-card{margin-bottom:12px;padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(2,6,23,.5)}
+.aegis-patch-card header{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);margin-bottom:8px}
+#view-aegis.aegis-critical{box-shadow:inset 0 0 0 1px rgba(255,51,102,.25)}
