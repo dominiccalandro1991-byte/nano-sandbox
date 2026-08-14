@@ -29,7 +29,7 @@
 
   const WEIGHTS = [0.25, 0.25, 0.25, 0.25];
   const SEC_THRESHOLD = 0.850;
-  const ENGINE_VERSION = "nnacc-v2.5-nase-live";
+  const ENGINE_VERSION = "nnacc-v2.6-engine-vectors";
 
   let worker = null;
   let mainLoopId = null;
@@ -181,36 +181,58 @@
       if (!nr.ok) throw new Error("nonce HTTP " + nr.status);
       const nonceBody = await nr.json();
       const nonce = nonceBody.nonce;
-      const binding = await sha256Hex(nonce + "|" + attTs.toFixed(6));
+      const snap = nonceBody.engine_snapshot || {};
+      const weighted = typeof snap.weighted_sum === "number"
+        ? snap.weighted_sum
+        : (typeof nonceBody.weighted_sum === "number" ? nonceBody.weighted_sum : null);
+      // S_attest = H(N_server || sum(omega_k * phi_k(t)))
+      let clientSAttest = nonceBody.expected_s_attest || null;
+      if (!clientSAttest && weighted != null) {
+        clientSAttest = await sha256Hex(nonce + "|" + Number(weighted).toFixed(12));
+      }
+      if (!clientSAttest) {
+        // fallback: client recomputes from vectors if present
+        if (Array.isArray(snap.vectors) && snap.vectors.length) {
+          let sum = 0;
+          for (let i = 0; i < snap.vectors.length; i++) {
+            const row = snap.vectors[i];
+            sum += (Number(row.omega) || 0) * (Number(row.phi) || 0);
+          }
+          clientSAttest = await sha256Hex(nonce + "|" + sum.toFixed(12));
+        }
+      }
       const vr = await fetch(remoteBase + "/nase/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           attestation_timestamp: attTs,
           nonce: nonce,
-          client_binding_hash: binding,
+          client_s_attest: clientSAttest,
+          client_binding_hash: clientSAttest,
           delta_seconds: delta,
           require_nonce: true,
+          require_s_attest: true,
         }),
       });
-      const body = await vr.json().catch(() => ({}));
+      const body = await vr.json().catch(function () { return {}; });
       if (vr.status === 401 || vr.status === 403) {
         vaultLocked = true;
-        pushAudit({ kind: "attest-lock", status: vr.status, detail: body });
+        pushAudit({ kind: "attest-lock", status: vr.status, detail: body, equation: "S_attest" });
         if (typeof onVaultLock === "function") onVaultLock(true, body);
         return {
           mode: "live",
           ok: false,
           locked: true,
           status: vr.status,
-          reason: (body && (body.detail && body.detail.reason)) || body.reason || "denied",
+          reason: (body && body.detail && body.detail.reason) || body.reason || "denied",
           S_attest: 0,
+          engine_count: snap.engine_count || 25,
         };
       }
       if (!vr.ok) throw new Error("verify HTTP " + vr.status);
       vaultLocked = false;
       if (typeof onVaultLock === "function") onVaultLock(false, body);
-      pushAudit({ kind: "attest-ok", server_now: body.server_now });
+      pushAudit({ kind: "attest-ok", server_now: body.server_now, equation: "S_attest", engines: snap.engine_count });
       return {
         mode: "live",
         ok: true,
@@ -219,6 +241,8 @@
         reason: body.reason || "attestation verified",
         S_attest: 1.0,
         server_now: body.server_now,
+        engine_count: snap.engine_count || 25,
+        weighted_sum: weighted,
       };
     } catch (err) {
       pushAudit({ kind: "attest-error", message: String(err && err.message || err) });

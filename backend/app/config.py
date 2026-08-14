@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     # for why, and what to swap in if this needs to survive restarts.
     max_retained_jobs: int = 500
 
+    # HMAC secret for signing 25-engine attestation snapshots.
+    # Override in production via NANO_SANDBOX_ATTESTATION_SECRET.
+    attestation_secret: str = "nano-sandbox-dev-attestation-secret-change-me"
+
+    # SQLite path for durable vault-sync ciphertext (server never decrypts).
+    vault_db_path: str = "data/nase_vault.sqlite"
+
 
 def get_settings() -> Settings:
     return Settings()

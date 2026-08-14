@@ -13,8 +13,9 @@
  *   - IndexedDB open/put/get/delete: standard IDB API.
  *   - navigator.storage.persist() / estimate(): best-effort; private mode often denies.
  *   - Backend vault-sync: ephemeral in-process store (test_nase_attestation.py);
- *     not durable multi-tenant storage. Client "encryption" here is Web Crypto
- *     AES-GCM with a session-ephemeral key (not end-to-end identity crypto).
+ *     not durable multi-tenant storage. Client encryption: Web Crypto PBKDF2 (120k iter) from persistent identity
+ *     token → AES-GCM. Backend never receives key/token — ciphertext only.
+ *     Federated IdP binding is Missing (static shell has no login).
  *   - Residual: private-mode still loses data on tab close if remote is offline.
  */
 
@@ -113,12 +114,65 @@
     onVolatile = typeof fn === "function" ? fn : null;
   }
 
+  /**
+   * Identity-bound key: PBKDF2 from persistent client identity token.
+   * Backend never receives this key or the token — only ciphertext + content_hash.
+   * Evidence: Partially Verified (Web Crypto PBKDF2+AES-GCM). Federated IdP auth
+   * is Missing in the static shell; token is device-persistent local secret.
+   */
+  function getOrCreateIdentityToken() {
+    var KEY = "nnacc-v2-identity-token";
+    try {
+      var existing = localStorage.getItem(KEY);
+      if (existing && existing.length >= 32) return existing;
+      var bytes = crypto.getRandomValues(new Uint8Array(32));
+      var token = Array.from(bytes).map(function (b) {
+        return b.toString(16).padStart(2, "0");
+      }).join("");
+      localStorage.setItem(KEY, token);
+      return token;
+    } catch (e) {
+      // localStorage blocked — ephemeral fallback (still never sent to server)
+      if (!global.__nnacc_ephemeral_id) {
+        var b = crypto.getRandomValues(new Uint8Array(32));
+        global.__nnacc_ephemeral_id = Array.from(b).map(function (x) {
+          return x.toString(16).padStart(2, "0");
+        }).join("");
+      }
+      return global.__nnacc_ephemeral_id;
+    }
+  }
+
+  async function identityFingerprint() {
+    var token = getOrCreateIdentityToken();
+    var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("fp:" + token));
+    return Array.from(new Uint8Array(buf)).map(function (b) {
+      return b.toString(16).padStart(2, "0");
+    }).join("").slice(0, 32);
+  }
+
   async function getSessionKey() {
     if (sessionKeyPromise) return sessionKeyPromise;
     sessionKeyPromise = (async function () {
-      return crypto.subtle.generateKey(
+      var token = getOrCreateIdentityToken();
+      var salt = new TextEncoder().encode("nnacc-v2-vault-e2e-v1");
+      var baseKey = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(token),
+        "PBKDF2",
+        false,
+        ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: salt,
+          iterations: 120000,
+          hash: "SHA-256",
+        },
+        baseKey,
         { name: "AES-GCM", length: 256 },
-        true,
+        false,
         ["encrypt", "decrypt"]
       );
     })();
@@ -160,6 +214,7 @@
           ciphertext_b64: cipher,
           content_hash: hash,
           session_hint: entry.id,
+          identity_hint: await identityFingerprint(),
         }),
       });
       if (!res.ok) throw new Error("vault-sync HTTP " + res.status);
