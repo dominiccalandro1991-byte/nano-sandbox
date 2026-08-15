@@ -18,14 +18,30 @@
 
   function wireNav() {
     document.querySelectorAll("[data-route]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        var raw = btn.getAttribute("data-route");
+        var route;
+        try {
+          route = JSON.parse(raw);
+        } catch (e) {
+          return;
+        }
         document.querySelectorAll("[data-route]").forEach(function (b) {
           b.classList.remove("active");
+          try {
+            var r2 = JSON.parse(b.getAttribute("data-route"));
+            if (r2 && route && r2.type === route.type && r2.id === route.id) {
+              b.classList.add("active");
+            }
+          } catch (e2) {}
         });
         btn.classList.add("active");
-        var raw = btn.getAttribute("data-route");
-        var route = JSON.parse(raw);
         window.WorkspaceRouter.navigate(route);
+        var center = $("center-workspace");
+        if (center && center.scrollIntoView) {
+          center.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
     });
 
@@ -89,9 +105,16 @@
     // 3. Mount persistent vault database connector
     mountVaultConnector();
 
-    // 4. Workspace + micro-actions await user selection
+    // 4. Workspace + micro-actions; default mount Chat so mobile is not blank
     window.WorkspaceRouter.init($("center-workspace"));
     window.MicroActions.init($("right-micro"));
+    window.WorkspaceRouter.navigate({ type: "chat" });
+    document.querySelectorAll('[data-route]').forEach(function (b) {
+      try {
+        var r = JSON.parse(b.getAttribute("data-route"));
+        if (r && r.type === "chat") b.classList.add("active");
+      } catch (e) {}
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

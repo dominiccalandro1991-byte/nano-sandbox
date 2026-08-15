@@ -223,12 +223,77 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 
 body.vault-locked .ws-primary-btn { opacity: 0.45; pointer-events: none; }
 
+
+/* Mobile: topbar + collapsible nav drawer + full-height workspace + actions bar */
 @media (max-width: 900px) {
   .platform {
     grid-template-columns: 1fr;
-    grid-template-rows: 40px auto 1fr auto;
+    grid-template-rows: 44px auto 1fr auto;
+    height: 100dvh;
   }
-  .left-pane, .right-pane { max-height: 28vh; }
-  .left-pane { border-right: none; border-bottom: 1px solid var(--border); }
-  .right-pane { border-left: none; border-top: 1px solid var(--border); }
+  .left-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: none;
+    overflow: visible;
+  }
+  .left-pane.nav-collapsed .suite-body {
+    display: none !important;
+  }
+  .left-pane.nav-collapsed .suite-toggle {
+    display: none;
+  }
+  .left-pane.nav-collapsed {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+  }
+  .left-pane.nav-collapsed .vault-status {
+    display: none;
+  }
+  .mobile-nav-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+  .mobile-nav-bar .nav-item {
+    flex: 1 1 auto;
+    min-width: 42%;
+    text-align: center;
+    padding: 12px 8px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(0, 255, 157, 0.05);
+  }
+  .mobile-nav-bar .nav-item.active {
+    border-color: rgba(0, 255, 157, 0.45);
+    color: var(--accent);
+  }
+  .center-pane {
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .right-pane {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 22vh;
+    padding: 10px;
+  }
+  .ws-panel { padding: 12px 12px 24px; }
+  .chat-list { height: min(42vh, 360px); }
+  .nav-item { padding: 12px 12px; font-size: 14px; min-height: 44px; }
+  .suite-toggle { padding: 12px; font-size: 12px; }
 }
+
+@media (min-width: 901px) {
+  .mobile-nav-bar { display: none !important; }
+}
+
+
+.nav-item { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.suite-toggle { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }

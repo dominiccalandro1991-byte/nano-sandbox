@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0c10" />
   <title>Nano-Sandbox Platform · Three-Pane Architecture</title>
-  <link rel="stylesheet" href="css/platform.css?v=platform-1.0" />
+  <link rel="stylesheet" href="css/platform.css?v=platform-1.1" />
 </head>
 <body>
   <div class="platform" id="app">
@@ -19,8 +19,16 @@
     </header>
 
     <!-- LEFT: three primary suites, zero overlap -->
-    <aside class="left-pane" aria-label="Global navigation">
-      <section class="suite" data-suite="engines">
+    <aside class="left-pane" id="left-pane" aria-label="Global navigation">
+      <div class="mobile-nav-bar" id="mobile-nav-bar">
+        <button type="button" class="nav-item" data-route='{"type":"macro","id":"research"}'>Research</button>
+        <button type="button" class="nav-item" data-route='{"type":"macro","id":"inventor"}'>Inventor</button>
+        <button type="button" class="nav-item" data-route='{"type":"macro","id":"coder"}'>Coder</button>
+        <button type="button" class="nav-item" data-route='{"type":"macro","id":"deploy"}'>Deploy</button>
+        <button type="button" class="nav-item" data-route='{"type":"aegis"}'>AEGIS</button>
+        <button type="button" class="nav-item" data-route='{"type":"chat"}'>Chat Studio</button>
+      </div>
+      <section class="suite desktop-suites" data-suite="engines">
         <button type="button" class="suite-toggle open" data-suite-toggle="engines">Engine Management Suite</button>
         <div class="suite-body" data-suite-body="engines">
           <button type="button" class="nav-item" data-route='{"type":"macro","id":"research"}'>Research · φ1–5</button>
@@ -56,11 +64,11 @@
   </div>
 
   <!-- Mount sequence scripts: daemon → isolates → chat partition → router → micro → app -->
-  <script src="js/nase-daemon.js?v=platform-1.0"></script>
-  <script src="js/engine-isolates.js?v=platform-1.0"></script>
-  <script src="js/chat-partition.js?v=platform-1.0"></script>
-  <script src="js/workspace-router.js?v=platform-1.0"></script>
-  <script src="js/micro-actions.js?v=platform-1.0"></script>
-  <script src="js/app.js?v=platform-1.0"></script>
+  <script src="js/nase-daemon.js?v=platform-1.1"></script>
+  <script src="js/engine-isolates.js?v=platform-1.1"></script>
+  <script src="js/chat-partition.js?v=platform-1.1"></script>
+  <script src="js/workspace-router.js?v=platform-1.1"></script>
+  <script src="js/micro-actions.js?v=platform-1.1"></script>
+  <script src="js/app.js?v=platform-1.1"></script>
 </body>
 </html>
