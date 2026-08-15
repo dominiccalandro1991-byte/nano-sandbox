@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0c10" />
+  <title>Nano-Sandbox Platform · Three-Pane Architecture</title>
+  <link rel="stylesheet" href="css/platform.css?v=platform-1.0" />
+</head>
+<body>
+  <div class="platform" id="app">
+    <header class="topbar">
+      <span class="brand">NANO-SANDBOX PLATFORM</span>
+      <span class="muted">Hierarchical · Isolated engines · Partitioned chat</span>
+      <div class="metric">
+        <span>H_sys <strong id="global-hsys">—</strong></span>
+        <span id="global-threat" data-threat="NOMINAL">—</span>
+      </div>
+    </header>
+
+    <!-- LEFT: three primary suites, zero overlap -->
+    <aside class="left-pane" aria-label="Global navigation">
+      <section class="suite" data-suite="engines">
+        <button type="button" class="suite-toggle open" data-suite-toggle="engines">Engine Management Suite</button>
+        <div class="suite-body" data-suite-body="engines">
+          <button type="button" class="nav-item" data-route='{"type":"macro","id":"research"}'>Research · φ1–5</button>
+          <button type="button" class="nav-item" data-route='{"type":"macro","id":"inventor"}'>Inventor · φ6–10</button>
+          <button type="button" class="nav-item" data-route='{"type":"macro","id":"coder"}'>Coder · φ11–15</button>
+          <button type="button" class="nav-item" data-route='{"type":"macro","id":"deploy"}'>Deploy · φ16–20</button>
+        </div>
+      </section>
+
+      <section class="suite" data-suite="telemetry">
+        <button type="button" class="suite-toggle open" data-suite-toggle="telemetry">Telemetry &amp; Diagnostic Suite</button>
+        <div class="suite-body" data-suite-body="telemetry">
+          <button type="button" class="nav-item" data-route='{"type":"aegis"}'>NASE-AEGIS · H_sys</button>
+        </div>
+      </section>
+
+      <section class="suite" data-suite="chat">
+        <button type="button" class="suite-toggle open" data-suite-toggle="chat">Chat Management Suite</button>
+        <div class="suite-body" data-suite-body="chat">
+          <button type="button" class="nav-item" data-route='{"type":"chat"}'>Voltage Cipher Studio</button>
+          <button type="button" class="nav-item" data-route='{"type":"macro","id":"research"}'>Chat Macro bridge · Research</button>
+        </div>
+      </section>
+
+      <div id="vault-connector-status" class="vault-status">Vault: initializing…</div>
+    </aside>
+
+    <!-- CENTER: active workspace -->
+    <main class="center-pane" id="center-workspace" aria-label="Active workspace"></main>
+
+    <!-- RIGHT: context micro-actions -->
+    <aside class="right-pane" id="right-micro" aria-label="Micro-actions"></aside>
+  </div>
+
+  <!-- Mount sequence scripts: daemon → isolates → chat partition → router → micro → app -->
+  <script src="js/nase-daemon.js?v=platform-1.0"></script>
+  <script src="js/engine-isolates.js?v=platform-1.0"></script>
+  <script src="js/chat-partition.js?v=platform-1.0"></script>
+  <script src="js/workspace-router.js?v=platform-1.0"></script>
+  <script src="js/micro-actions.js?v=platform-1.0"></script>
+  <script src="js/app.js?v=platform-1.0"></script>
+</body>
+</html>
