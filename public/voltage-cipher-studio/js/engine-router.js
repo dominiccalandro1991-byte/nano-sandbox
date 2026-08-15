@@ -399,68 +399,83 @@
   async function sendMessage(targetKey, userMessage, opts) {
     opts = opts || {};
     var onToken = opts.onToken || null;
-    var preferLive = opts.preferLive !== false;
     var target = resolveTarget(targetKey);
-    var mode = "mock";
-    var unpacked;
     var targetName =
       target.kind === "persona"
         ? target.persona.name
         : "Engine " + target.engine.id + " (" + target.engine.name + ")";
+    var modelId = opts.model || DEFAULT_MODEL;
 
-    // Prefer OpenRouter via backend /llm/chat when model is selected
-    if (preferLive && opts.model) {
-      try {
-        var history = opts.history || [];
-        var msgs = history.concat([{ role: "user", content: userMessage }]);
-        var llm = await chatLLM(opts.model, msgs, {
-          persona: target.kind === "persona" ? target.persona.id : null,
-          engineId: target.kind === "engine" ? target.engine.id : null
-        });
-        unpacked = unpackResponse(llm, targetName);
-        mode = "llm";
-        if (onToken && unpacked.text) await streamMock(unpacked.text, onToken);
-        return { ok: true, mode: mode, target: target, unpacked: unpacked, raw: llm, model: opts.model };
-      } catch (llmErr) {
-        try {
-          console.warn("[VCS] LLM path failed, falling back", llmErr);
-        } catch (e) {}
-        if (opts.requireLlm) throw llmErr;
+    // Build OpenAI-style messages array from prior turns + current user message
+    var history = Array.isArray(opts.history) ? opts.history.slice() : [];
+    var messages = [];
+    history.forEach(function (m) {
+      if (!m || !m.content) return;
+      var role = m.role === "assistant" || m.role === "system" ? m.role : "user";
+      // skip empty / pure fault stubs
+      if (String(m.content).indexOf("Grounded chat core bound to Supabase") !== -1) return;
+      messages.push({ role: role, content: String(m.content) });
+    });
+    messages.push({ role: "user", content: userMessage });
+
+    try {
+      var llm = await chatLLM(modelId, messages, {
+        persona: target.kind === "persona" ? target.persona.id : null,
+        engineId: target.kind === "engine" ? target.engine.id : null,
+        temperature: opts.temperature,
+        maxTokens: opts.maxTokens
+      });
+      var unpacked = unpackResponse(llm, targetName);
+      // Prefer explicit content/result fields from /llm/chat
+      if (llm && typeof llm.content === "string" && llm.content.trim()) {
+        unpacked.text = llm.content;
+      } else if (llm && typeof llm.result === "string" && llm.result.trim()) {
+        unpacked.text = llm.result;
       }
-    }
-
-    if (preferLive) {
-      try {
-        var live = await dispatchLive(target, userMessage);
-        var targetName =
-          target.kind === "persona"
-            ? target.persona.name
-            : "Engine " + target.engine.id + " (" + target.engine.name + ")";
-        unpacked = unpackResponse(live, targetName);
-        mode = "live";
-        if (onToken && unpacked.text) {
-          // present as quick stream for UX consistency
-          await streamMock(unpacked.text, onToken);
+      if (onToken && unpacked.text) {
+        await streamMock(unpacked.text, onToken);
+      }
+      return {
+        ok: true,
+        mode: "llm",
+        target: target,
+        unpacked: unpacked,
+        raw: llm,
+        model: modelId
+      };
+    } catch (llmErr) {
+      var detail =
+        (llmErr && llmErr.body && llmErr.body.detail) ||
+        (llmErr && llmErr.message) ||
+        String(llmErr);
+      if (typeof detail === "object") {
+        try {
+          detail = detail.message || JSON.stringify(detail);
+        } catch (e) {
+          detail = String(detail);
         }
-        return { ok: true, mode: mode, target: target, unpacked: unpacked, raw: live };
-      } catch (err) {
-        try {
-          console.warn("[VCS] live dispatch failed, mock fallback", err);
-        } catch (e) {}
       }
+      // Optional explicit mock only when allowMock:true (dev) — never NASE macro stubs
+      if (opts.allowMock) {
+        var mockText = mockStreamText(target, userMessage);
+        if (onToken) await streamMock(mockText, onToken);
+        return {
+          ok: true,
+          mode: "mock",
+          target: target,
+          unpacked: unpackResponse(mockText, targetName),
+          raw: mockText,
+          model: modelId
+        };
+      }
+      var err = new Error(String(detail));
+      err.status = llmErr && llmErr.status;
+      err.body = llmErr && llmErr.body;
+      throw err;
     }
-
-    var mockText = mockStreamText(target, userMessage);
-    await streamMock(mockText, onToken);
-    var targetNameMock =
-      target.kind === "persona"
-        ? target.persona.name
-        : "Engine " + target.engine.id + " (" + target.engine.name + ")";
-    unpacked = unpackResponse(mockText, targetNameMock);
-    return { ok: true, mode: "mock", target: target, unpacked: unpacked, raw: mockText };
   }
 
-  function listSelectOptions() {
+    function listSelectOptions() {
     var html = "";
     html += '<optgroup label="Artist Personas">';
     PERSONAS.forEach(function (p) {

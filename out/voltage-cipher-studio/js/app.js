@@ -288,19 +288,26 @@
     try {
       var history = (sess.messages || [])
         .filter(function (m) {
-          return m !== assistant && (m.role === "user" || m.role === "assistant") && m.text;
+          return (
+            m !== assistant &&
+            (m.role === "user" || m.role === "assistant") &&
+            m.text &&
+            !m.failed &&
+            String(m.text).indexOf("Grounded chat core bound to Supabase") === -1 &&
+            String(m.text).indexOf("OpenRouter is not configured") === -1
+          );
         })
-        .slice(-12)
+        .slice(-16)
         .map(function (m) {
-          return { role: m.role, content: m.text };
+          return { role: m.role === "assistant" ? "assistant" : "user", content: m.text };
         });
-      // last user is already being sent as userMessage — drop trailing duplicate if present
+
       var result = await window.EngineRouter.sendMessage(targetKey, text, {
         onToken: onToken,
-        preferLive: true,
         model: modelId,
-        history: history.filter(function (m, idx, arr) {
-          return !(idx === arr.length - 1 && m.role === "user" && m.content === text);
+        allowMock: false,
+        history: history.filter(function (m) {
+          return m.content && m.content.indexOf("Grounded chat core bound to Supabase") === -1;
         })
       });
       assistant.text = (result.unpacked && result.unpacked.text) || assistant.text;
@@ -312,7 +319,17 @@
       else assistant.speaker = result.target.engine.label;
       if (avatar) avatar.onSuccess({ mode: result.mode, model: assistant.model });
     } catch (err) {
-      assistant.text = "Fault: " + (err && err.message ? err.message : String(err));
+      var msg = err && err.message ? err.message : String(err);
+      if (
+        String(msg).indexOf("openrouter_key_missing") !== -1 ||
+        String(msg).indexOf("OPENROUTER") !== -1 ||
+        (err && err.status === 503)
+      ) {
+        msg =
+          "OpenRouter is not configured on the API server yet. " +
+          "Set OPENROUTER_API_KEY (or NANO_SANDBOX_OPENROUTER_API_KEY) on Render for nano-sandbox-api, redeploy, then retry.";
+      }
+      assistant.text = msg;
       assistant.mode = "error";
       assistant.failed = true;
       if (avatar) avatar.onError({ message: assistant.text });
