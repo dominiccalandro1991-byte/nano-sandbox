@@ -1,13 +1,7 @@
 /**
- * App entry — enforced mount sequence from SYSTEM_RESTRUCTURE.md
- * 1. NASE_Daemon
- * 2. Sidebar navigation tree
- * 3. Vault connector (client-state)
- * 4. Await user selection → WorkspaceRouter mounts components
- *
- * Layout: Left suites | Center workspace | Right micro-actions
- * Note: Modular vanilla isolates mirror React useState isolation without
- * requiring an npm build (Pages deploy remains static).
+ * Chat-first shell (ChatGPT / Claude mobile pattern)
+ * Home = Voltage Cipher Studio chat + 6 models
+ * Menu drawer = engines, AEGIS, settings
  */
 (function () {
   "use strict";
@@ -16,105 +10,273 @@
     return document.getElementById(id);
   }
 
-  function wireNav() {
-    document.querySelectorAll("[data-route]").forEach(function (btn) {
-      btn.addEventListener("click", function (ev) {
-        ev.preventDefault();
-        var raw = btn.getAttribute("data-route");
-        var route;
+  var streaming = false;
+
+  function openDrawer(yes) {
+    var d = $("drawer");
+    var b = $("drawer-backdrop");
+    if (!d || !b) return;
+    if (yes) {
+      d.hidden = false;
+      b.hidden = false;
+    } else {
+      d.hidden = true;
+      b.hidden = true;
+    }
+  }
+
+  function showScreen(name) {
+    ["screen-chat", "screen-work", "screen-settings"].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      if (id === "screen-" + name) {
+        el.hidden = false;
+        el.classList.add("active");
+      } else {
+        el.hidden = true;
+        el.classList.remove("active");
+      }
+    });
+    var titles = {
+      chat: ["Voltage Cipher Studio", "6 free models · multi-persona"],
+      work: ["Workspace", "Engine / diagnostic tools"],
+      settings: ["Settings", "API, vault, thread, health"]
+    };
+    var t = titles[name] || titles.chat;
+    if ($("screen-title")) $("screen-title").textContent = t[0];
+    if ($("screen-sub")) $("screen-sub").textContent = t[1];
+  }
+
+  function renderMessages() {
+    var list = $("message-list");
+    if (!list || !window.ChatPartition) return;
+    var st = window.ChatPartition.getState();
+    list.innerHTML = "";
+    if (!st.messages.length) {
+      var empty = document.createElement("div");
+      empty.className = "msg assistant";
+      empty.innerHTML =
+        "<div class=\"msg-meta\">Studio</div>Select a model, pick a persona, and send a message. Engines &amp; AEGIS are in the ☰ menu.";
+      list.appendChild(empty);
+      return;
+    }
+    st.messages.forEach(function (m) {
+      var div = document.createElement("div");
+      div.className = "msg " + m.role + (m.failed ? " failed" : "");
+      var meta = document.createElement("div");
+      meta.className = "msg-meta";
+      meta.textContent =
+        m.role === "user" ? "You" : (st.persona && st.persona.name) || "Assistant";
+      var body = document.createElement("div");
+      body.textContent = m.content || "";
+      div.appendChild(meta);
+      div.appendChild(body);
+      list.appendChild(div);
+    });
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function fillSelects() {
+    var p = $("persona-select");
+    var m = $("model-select");
+    if (!window.ChatPartition) return;
+    var st = window.ChatPartition.getState();
+    if (p) {
+      p.innerHTML = "";
+      window.ChatPartition.PERSONAS.forEach(function (x) {
+        var o = document.createElement("option");
+        o.value = x.id;
+        o.textContent = x.glyph + " " + x.name;
+        if (x.id === st.personaId) o.selected = true;
+        p.appendChild(o);
+      });
+      p.onchange = function () {
+        window.ChatPartition.setPersona(p.value);
+      };
+    }
+    if (m) {
+      m.innerHTML = "";
+      var ogC = document.createElement("optgroup");
+      ogC.label = "Coding Pro (Free)";
+      var ogG = document.createElement("optgroup");
+      ogG.label = "General Chat & Reasoning (Free)";
+      window.ChatPartition.FREE_MODELS.forEach(function (x) {
+        var o = document.createElement("option");
+        o.value = x.id;
+        o.textContent = x.label;
+        if (x.id === st.modelId) o.selected = true;
+        (x.cat === "coding" ? ogC : ogG).appendChild(o);
+      });
+      m.appendChild(ogC);
+      m.appendChild(ogG);
+      m.onchange = function () {
+        window.ChatPartition.setModel(m.value);
         try {
-          route = JSON.parse(raw);
-        } catch (e) {
-          return;
+          localStorage.setItem("vcs-model", m.value);
+        } catch (e) {}
+      };
+      try {
+        var saved = localStorage.getItem("vcs-model");
+        if (saved) {
+          m.value = saved;
+          window.ChatPartition.setModel(saved);
         }
-        document.querySelectorAll("[data-route]").forEach(function (b) {
-          b.classList.remove("active");
-          try {
-            var r2 = JSON.parse(b.getAttribute("data-route"));
-            if (r2 && route && r2.type === route.type && r2.id === route.id) {
-              b.classList.add("active");
-            }
-          } catch (e2) {}
-        });
-        btn.classList.add("active");
-        window.WorkspaceRouter.navigate(route);
-        var center = $("center-workspace");
-        if (center && center.scrollIntoView) {
-          center.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {}
+    }
+  }
+
+  async function send() {
+    if (streaming) return;
+    var ta = $("composer");
+    var text = (ta && ta.value || "").trim();
+    if (!text) return;
+    ta.value = "";
+    streaming = true;
+    if ($("send-btn")) $("send-btn").disabled = true;
+    renderMessages();
+    try {
+      await window.ChatPartition.sendUserMessage(text);
+    } catch (e) {}
+    streaming = false;
+    if ($("send-btn")) $("send-btn").disabled = false;
+    renderMessages();
+  }
+
+  function paintHealth(snap) {
+    var pill = $("hsys-pill");
+    if (pill) {
+      pill.textContent = "H " + Number(snap.hSys).toFixed(3);
+      pill.dataset.threat = snap.threat || "";
+    }
+    if ($("drawer-hsys"))
+      $("drawer-hsys").textContent =
+        "H_sys " + Number(snap.hSys).toFixed(3) + " · " + (snap.threat || "");
+    if ($("setting-hsys")) $("setting-hsys").textContent = Number(snap.hSys).toFixed(3);
+    if ($("setting-threat")) $("setting-threat").textContent = snap.threat || "—";
+  }
+
+  function goWork(macroOrAegis) {
+    showScreen("work");
+    openDrawer(false);
+    if (!window.WorkspaceRouter) return;
+    var root = $("work-root");
+    if (!root) return;
+    // Temporarily point workspace router at work-root
+    window.WorkspaceRouter.init(root);
+    if (macroOrAegis === "aegis") {
+      window.WorkspaceRouter.navigate({ type: "aegis" });
+      if ($("screen-title")) $("screen-title").textContent = "NASE-AEGIS";
+    } else {
+      window.WorkspaceRouter.navigate({ type: "macro", id: macroOrAegis });
+      if ($("screen-title"))
+        $("screen-title").textContent =
+          macroOrAegis.charAt(0).toUpperCase() + macroOrAegis.slice(1) + " Macro";
+    }
+  }
+
+  function wire() {
+    $("menu-btn").onclick = function () {
+      openDrawer(true);
+    };
+    $("drawer-close").onclick = function () {
+      openDrawer(false);
+    };
+    $("drawer-backdrop").onclick = function () {
+      openDrawer(false);
+    };
+
+    document.querySelectorAll("[data-go]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var go = btn.getAttribute("data-go");
+        if (go === "chat") {
+          showScreen("chat");
+          openDrawer(false);
+          renderMessages();
+        } else if (go === "settings") {
+          showScreen("settings");
+          openDrawer(false);
+          refreshSettings();
+        } else if (go === "aegis") {
+          goWork("aegis");
+        } else {
+          goWork(go);
         }
       });
     });
 
-    document.querySelectorAll("[data-suite-toggle]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var id = btn.getAttribute("data-suite-toggle");
-        var body = document.querySelector('[data-suite-body="' + id + '"]');
-        if (body) body.classList.toggle("collapsed");
-        btn.classList.toggle("open");
-      });
+    $("send-btn").onclick = send;
+    $("composer").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    $("save-remote").onclick = function () {
+      var v = ($("setting-remote").value || "").trim();
+      try {
+        localStorage.setItem("vcs-remote", v);
+        localStorage.setItem("nnacc-v2-remote", v);
+        window.__NNACC_REMOTE__ = v;
+      } catch (e) {}
+      $("save-remote").textContent = "Saved";
+      setTimeout(function () {
+        $("save-remote").textContent = "Save API URL";
+      }, 1000);
+    };
+
+    $("btn-export-thread").onclick = function () {
+      var json = window.ChatPartition.exportThread();
+      if (navigator.clipboard) navigator.clipboard.writeText(json);
+    };
+    $("btn-delete-thread").onclick = function () {
+      window.ChatPartition.deleteThread();
+      renderMessages();
+      showScreen("chat");
+    };
+    $("btn-force-probe").onclick = function () {
+      if (window.NASE_Daemon) window.NASE_Daemon.probe().then(paintHealth);
+    };
+
+    window.addEventListener("nase:force-research", function () {
+      goWork("research");
     });
   }
 
-  function mountVaultConnector() {
-    // Client-state mock / status for nnacc_vault_db (IndexedDB presence check)
-    var el = $("vault-connector-status");
-    if (!el) return;
+  function refreshSettings() {
     try {
-      if (!window.indexedDB) {
-        el.textContent = "Vault: IndexedDB unavailable";
-        el.dataset.state = "error";
-        return;
-      }
+      $("setting-remote").value =
+        localStorage.getItem("vcs-remote") ||
+        localStorage.getItem("nnacc-v2-remote") ||
+        "https://nano-sandbox-api.onrender.com";
+    } catch (e) {}
+    if (window.NASE_Daemon) paintHealth(window.NASE_Daemon.getSnapshot());
+    // vault
+    var vel = $("setting-vault");
+    try {
       var req = indexedDB.open("nnacc_vault_db");
-      req.onerror = function () {
-        el.textContent = "Vault: open failed";
-        el.dataset.state = "error";
-      };
       req.onsuccess = function () {
-        el.textContent = "Vault: nnacc_vault_db connected";
-        el.dataset.state = "ok";
+        if (vel) vel.textContent = "nnacc_vault_db connected";
         try {
           req.result.close();
         } catch (e) {}
       };
+      req.onerror = function () {
+        if (vel) vel.textContent = "unavailable";
+      };
     } catch (e) {
-      el.textContent = "Vault: " + (e.message || "error");
-      el.dataset.state = "error";
-    }
-  }
-
-  function paintHsys(snap) {
-    var el = $("global-hsys");
-    var th = $("global-threat");
-    if (el) el.textContent = Number(snap.hSys).toFixed(3);
-    if (th) {
-      th.textContent = snap.threat;
-      th.dataset.threat = snap.threat;
+      if (vel) vel.textContent = "error";
     }
   }
 
   function boot() {
-    // 1. Initialize NASE_Daemon
     window.NASE_Daemon.init();
-    window.NASE_Daemon.subscribe(paintHsys);
-    paintHsys(window.NASE_Daemon.getSnapshot());
-
-    // 2. Mount Sidebar Navigation tree (already in DOM; wire events)
-    wireNav();
-
-    // 3. Mount persistent vault database connector
-    mountVaultConnector();
-
-    // 4. Workspace + micro-actions; default mount Chat so mobile is not blank
-    window.WorkspaceRouter.init($("center-workspace"));
-    window.MicroActions.init($("right-micro"));
-    window.WorkspaceRouter.navigate({ type: "chat" });
-    document.querySelectorAll('[data-route]').forEach(function (b) {
-      try {
-        var r = JSON.parse(b.getAttribute("data-route"));
-        if (r && r.type === "chat") b.classList.add("active");
-      } catch (e) {}
-    });
+    window.NASE_Daemon.subscribe(paintHealth);
+    paintHealth(window.NASE_Daemon.getSnapshot());
+    fillSelects();
+    wire();
+    showScreen("chat");
+    renderMessages();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
