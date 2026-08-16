@@ -58,9 +58,117 @@
   }
 
 
-  var LANGUAGE_CATALOG = [
-    "Assembly","Ada","APL","Arduino","ASP.NET","AWK","Bash","Batch","C","C#","C++","Carbon","Clojure","COBOL","CoffeeScript","Common Lisp","Crystal","CSS","CUDA","D","Dart","Delphi","Dockerfile","Elixir","Elm","Erlang","F#","Fortran","GDScript","Go","GraphQL","Groovy","Haskell","Haxe","HTML","Java","JavaScript","Julia","Kotlin","LaTeX","Lean","Less","Lisp","Lua","Makefile","MATLAB","Nim","Nix","Objective-C","OCaml","Pascal","Perl","PHP","PL/SQL","PowerShell","Prisma","Protobuf","Python","R","Racket","Raku","Reason","Ruby","Rust","SAS","Scala","Scheme","SCSS","Shell","Smalltalk","Solidity","SQL","Svelte","Swift","Tcl","TOML","TypeScript","V","Vala","VB.NET","Verilog","VHDL","Vue","WebAssembly","XML","YAML","Zig"
+  /** MECE language taxonomy — programming, scripting, config, markup, version variants */
+  var LANGUAGE_TAXONOMY = [
+    {
+      id: "config",
+      label: "Configuration & Build",
+      items: [
+        "CMake", "JSON", "YAML", "TOML", "XML", "Makefile", "Docker", "Dockerfile",
+        "INI", "Env", "Protobuf", "Prisma", "GraphQL Schema", "Terraform (HCL)",
+        "Ansible YAML", "Nginx Conf", "Apache Conf"
+      ]
+    },
+    {
+      id: "markup",
+      label: "Markup & Templates",
+      items: [
+        "HTML5", "HTML4", "XHTML", "JSX", "TSX", "Pug", "Handlebars", "EJS",
+        "Jinja2", "Liquid", "Mustache", "Markdown", "MDX", "AsciiDoc", "SVG"
+      ]
+    },
+    {
+      id: "style",
+      label: "Styling",
+      items: [
+        "CSS3", "SCSS", "SASS", "LESS", "Stylus", "PostCSS", "Tailwind",
+        "CSS Modules", "Styled Components", "Emotion"
+      ]
+    },
+    {
+      id: "systems",
+      label: "Systems / Low-Level",
+      items: [
+        "C", "C++", "C++14", "C++17", "C++20", "C++23", "Rust", "Go",
+        "Assembly (x86)", "Assembly (ARM)", "Zig", "Nim", "V", "Carbon",
+        "D", "Ada", "Fortran", "COBOL", "CUDA", "OpenCL", "WebAssembly"
+      ]
+    },
+    {
+      id: "application",
+      label: "Application / Object-Oriented",
+      items: [
+        "Python", "Python 3.x", "Java", "Java 11", "Java 17", "Java 21",
+        "C#", "C# (.NET)", "Swift", "Kotlin", "Objective-C", "Ruby", "PHP",
+        "Dart", "Scala", "Groovy", "Crystal", "Vala", "VB.NET", "Delphi", "Pascal"
+      ]
+    },
+    {
+      id: "functional",
+      label: "Functional",
+      items: [
+        "Haskell", "Scala", "Clojure", "Elixir", "Erlang", "F#", "OCaml",
+        "Reason", "Elm", "PureScript", "Lisp", "Common Lisp", "Scheme", "Racket", "Lean"
+      ]
+    },
+    {
+      id: "web",
+      label: "Web / Scripting",
+      items: [
+        "JavaScript", "JavaScript (ES6+)", "TypeScript", "Lua", "Perl", "R",
+        "Julia", "MATLAB", "Groovy", "CoffeeScript", "LiveScript", "Svelte",
+        "Vue", "Angular TS", "SolidJS", "Wasm Bindgen"
+      ]
+    },
+    {
+      id: "database",
+      label: "Database / Query",
+      items: [
+        "SQL", "PostgreSQL", "MySQL", "SQLite", "MongoDB (MQL)", "GraphQL",
+        "Cypher", "Redis", "PL/SQL", "T-SQL", "Cassandra CQL", "DynamoDB", "SPARQL"
+      ]
+    },
+    {
+      id: "shell",
+      label: "Shell / OS",
+      items: [
+        "Bash", "Zsh", "PowerShell", "Batch", "Fish", "Shell", "AWK", "Sed", "Make"
+      ]
+    },
+    {
+      id: "contracts",
+      label: "Smart Contracts",
+      items: [
+        "Solidity", "Vyper", "Rust (WASM)", "Move", "Cairo", "Clarity"
+      ]
+    },
+    {
+      id: "other",
+      label: "Other / Domain",
+      items: [
+        "Raku", "Tcl", "Prolog", "SAS", "APL", "Haxe", "GDScript", "ShaderLab",
+        "GLSL", "HLSL", "WGSL", "LaTeX", "BibTeX", "Thrift", "Avro"
+      ]
+    }
   ];
+
+  function flatLanguageCatalog() {
+    var out = [];
+    var seen = {};
+    LANGUAGE_TAXONOMY.forEach(function (g) {
+      (g.items || []).forEach(function (lang) {
+        if (!seen[lang]) {
+          seen[lang] = true;
+          out.push({ lang: lang, group: g.label, groupId: g.id });
+        }
+      });
+    });
+    return out;
+  }
+
+  var LANGUAGE_CATALOG = flatLanguageCatalog().map(function (x) {
+    return x.lang;
+  });
 
   function readFilesAsPayload(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
@@ -174,17 +282,28 @@
   }
 
   function buildLanguageMultiSelect(form) {
+    var ROW_H = 34;
+    var VIEW_H = 200;
+    var catalog = flatLanguageCatalog();
     var wrap = el("div", "lang-multi");
     wrap.innerHTML =
-      '<label class="ws-field"><span>Languages (search · multi-select)</span>' +
-      '<input type="search" class="lang-search" placeholder="Search languages…" autocomplete="off" />' +
+      '<label class="ws-field"><span>Languages (MECE taxonomy · search · multi-select)</span>' +
+      '<input type="search" class="lang-search" placeholder="Search languages, variants, configs…" autocomplete="off" />' +
       "</label>" +
       '<div class="lang-selected"></div>' +
-      '<div class="lang-options" role="listbox"></div>';
+      '<div class="lang-viewport" style="height:' +
+      VIEW_H +
+      'px;overflow:auto;position:relative;border:1px solid var(--border);border-radius:8px;background:var(--bg)">' +
+      '<div class="lang-spacer"></div>' +
+      '<div class="lang-window" style="position:absolute;left:0;right:0;top:0"></div>' +
+      "</div>";
     var search = wrap.querySelector(".lang-search");
-    var opts = wrap.querySelector(".lang-options");
     var selectedEl = wrap.querySelector(".lang-selected");
+    var viewport = wrap.querySelector(".lang-viewport");
+    var spacer = wrap.querySelector(".lang-spacer");
+    var windowEl = wrap.querySelector(".lang-window");
     var selected = ["TypeScript"];
+    var filtered = catalog.slice();
 
     function paintSelected() {
       selectedEl.innerHTML = "";
@@ -198,27 +317,52 @@
             return x !== lang;
           });
           paintSelected();
-          paintOptions(search.value);
+          renderWindow();
         });
         selectedEl.appendChild(chip);
       });
       form._languages = selected.slice();
     }
 
-    function paintOptions(q) {
+    function applyFilter(q) {
       q = String(q || "")
         .trim()
         .toLowerCase();
-      opts.innerHTML = "";
-      LANGUAGE_CATALOG.filter(function (lang) {
-        return !q || lang.toLowerCase().indexOf(q) !== -1;
-      }).forEach(function (lang) {
+      if (!q) {
+        filtered = catalog.slice();
+      } else {
+        filtered = catalog.filter(function (row) {
+          return (
+            row.lang.toLowerCase().indexOf(q) !== -1 ||
+            row.group.toLowerCase().indexOf(q) !== -1
+          );
+        });
+      }
+      spacer.style.height = filtered.length * ROW_H + "px";
+      viewport.scrollTop = 0;
+      renderWindow();
+    }
+
+    function renderWindow() {
+      var scrollTop = viewport.scrollTop;
+      var start = Math.max(0, Math.floor(scrollTop / ROW_H) - 2);
+      var visible = Math.ceil(VIEW_H / ROW_H) + 4;
+      var end = Math.min(filtered.length, start + visible);
+      windowEl.style.transform = "translateY(" + start * ROW_H + "px)";
+      windowEl.innerHTML = "";
+      for (var i = start; i < end; i++) {
+        var row = filtered[i];
         var btn = document.createElement("button");
         btn.type = "button";
         btn.className =
-          "lang-option" + (selected.indexOf(lang) >= 0 ? " is-selected" : "");
-        btn.textContent = lang;
-        btn.addEventListener("click", function () {
+          "lang-option" + (selected.indexOf(row.lang) >= 0 ? " is-selected" : "");
+        btn.style.height = ROW_H + "px";
+        btn.style.lineHeight = ROW_H - 2 + "px";
+        btn.title = row.group;
+        btn.textContent = row.lang + " · " + row.group;
+        btn.setAttribute("data-lang", row.lang);
+        btn.addEventListener("click", function (ev) {
+          var lang = ev.currentTarget.getAttribute("data-lang");
           if (selected.indexOf(lang) >= 0) {
             selected = selected.filter(function (x) {
               return x !== lang;
@@ -227,17 +371,20 @@
             selected.push(lang);
           }
           paintSelected();
-          paintOptions(search.value);
+          renderWindow();
         });
-        opts.appendChild(btn);
-      });
+        windowEl.appendChild(btn);
+      }
     }
 
     search.addEventListener("input", function () {
-      paintOptions(search.value);
+      applyFilter(search.value);
+    });
+    viewport.addEventListener("scroll", function () {
+      renderWindow();
     });
     paintSelected();
-    paintOptions("");
+    applyFilter("");
     form.appendChild(wrap);
     form._languages = selected.slice();
   }

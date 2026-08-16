@@ -465,3 +465,20 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   color: var(--accent);
   background: rgba(0, 255, 157, 0.1);
 }
+
+.lang-viewport { -webkit-overflow-scrolling: touch; }
+.lang-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
