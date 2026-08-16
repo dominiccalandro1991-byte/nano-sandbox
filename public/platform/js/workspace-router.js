@@ -687,7 +687,18 @@
 
   function navigate(route) {
     if (!route) return mountEmpty();
-    if (route.type === "macro") return mountMacro(route.id, route.opts || {});
+    if (route.type === "macro") {
+      // Dedicated conversational engine workspace (no static JSON macro runner)
+      if (global.EngineChat) {
+        activeRoute = { type: "macro", id: route.id };
+        global.EngineChat.mount(root, route.id);
+        try {
+          global.dispatchEvent(new CustomEvent("platform:route", { detail: activeRoute }));
+        } catch (e) {}
+        return;
+      }
+      return mountMacro(route.id, route.opts || {});
+    }
     if (route.type === "aegis") return mountAegis();
     if (route.type === "chat") return mountChat();
     mountEmpty();
@@ -698,13 +709,26 @@
       root = elRoot;
       mountEmpty();
       global.addEventListener("nase:force-research", function (ev) {
-        mountMacro("research", { forcedRepair: true, hSys: ev.detail && ev.detail.hSys });
+        // Force research as conversational engine workspace
+        if (global.EngineChat) {
+          activeRoute = { type: "macro", id: "research" };
+          global.EngineChat.mount(root, "research");
+          try {
+            global.dispatchEvent(new CustomEvent("platform:route", { detail: activeRoute }));
+          } catch (e) {}
+        } else {
+          mountMacro("research", { forcedRepair: true, hSys: ev.detail && ev.detail.hSys });
+        }
       });
     },
     navigate: navigate,
     getActive: function () {
       return activeRoute;
     },
-    MACROS: MACROS
+    MACROS: MACROS,
+    LANGUAGE_TAXONOMY: LANGUAGE_TAXONOMY,
+    LANGUAGE_CATALOG: LANGUAGE_CATALOG,
+    flatLanguageCatalog: flatLanguageCatalog,
+    buildLanguageMultiSelect: buildLanguageMultiSelect
   };
 })(typeof window !== "undefined" ? window : globalThis);
