@@ -31,9 +31,9 @@
       suite: "engines",
       engines: [11, 12, 13, 14, 15],
       fields: [
-        { key: "task", label: "Task", type: "text" },
-        { key: "language", label: "Language", type: "text", value: "javascript" }
-      ]
+        { key: "task", label: "Task", type: "text" }
+      ],
+      languageMulti: true
     },
     deploy: {
       id: "deploy",
@@ -56,6 +56,192 @@
     if (html != null) n.innerHTML = html;
     return n;
   }
+
+
+  var LANGUAGE_CATALOG = [
+    "Assembly","Ada","APL","Arduino","ASP.NET","AWK","Bash","Batch","C","C#","C++","Carbon","Clojure","COBOL","CoffeeScript","Common Lisp","Crystal","CSS","CUDA","D","Dart","Delphi","Dockerfile","Elixir","Elm","Erlang","F#","Fortran","GDScript","Go","GraphQL","Groovy","Haskell","Haxe","HTML","Java","JavaScript","Julia","Kotlin","LaTeX","Lean","Less","Lisp","Lua","Makefile","MATLAB","Nim","Nix","Objective-C","OCaml","Pascal","Perl","PHP","PL/SQL","PowerShell","Prisma","Protobuf","Python","R","Racket","Raku","Reason","Ruby","Rust","SAS","Scala","Scheme","SCSS","Shell","Smalltalk","Solidity","SQL","Svelte","Swift","Tcl","TOML","TypeScript","V","Vala","VB.NET","Verilog","VHDL","Vue","WebAssembly","XML","YAML","Zig"
+  ];
+
+  function readFilesAsPayload(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    return Promise.all(
+      files.map(function (file) {
+        return new Promise(function (resolve) {
+          var reader = new FileReader();
+          reader.onload = function () {
+            var result = reader.result;
+            var isText = typeof result === "string";
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type || "application/octet-stream",
+              lastModified: file.lastModified,
+              encoding: isText ? "utf8" : "base64",
+              content: isText
+                ? result
+                : (result && result.split && result.indexOf(",") >= 0
+                    ? result.split(",")[1]
+                    : result)
+            });
+          };
+          reader.onerror = function () {
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type || "application/octet-stream",
+              error: "read_failed"
+            });
+          };
+          // Prefer text for code-like types; otherwise data URL base64
+          if (
+            /^(text\/|application\/(json|javascript|xml|x-yaml|toml)|.*\+(json|xml))/i.test(
+              file.type
+            ) ||
+            /\.(txt|md|json|js|jsx|ts|tsx|py|go|rs|java|c|cpp|h|hpp|css|scss|html|htm|xml|yml|yaml|toml|sh|sql|vue|svelte|rb|php|swift|kt|cs|r|lua)$/i.test(
+              file.name
+            )
+          ) {
+            reader.readAsText(file);
+          } else {
+            reader.readAsDataURL(file);
+          }
+        });
+      })
+    );
+  }
+
+  function buildIngestZone(panel) {
+    var zone = el("div", "ingest-zone");
+    zone.innerHTML =
+      '<div class="ingest-label">Universal payload ingestion</div>' +
+      '<div class="ingest-drop" tabindex="0">' +
+      "<span>Drop files here or click to upload</span>" +
+      '<input type="file" multiple accept="*/*" class="ingest-input" />' +
+      "</div>" +
+      '<ul class="ingest-file-list"></ul>';
+    var drop = zone.querySelector(".ingest-drop");
+    var input = zone.querySelector(".ingest-input");
+    var list = zone.querySelector(".ingest-file-list");
+    panel._ingestFiles = [];
+
+    function renderList() {
+      list.innerHTML = "";
+      panel._ingestFiles.forEach(function (f, idx) {
+        var li = document.createElement("li");
+        li.textContent = f.name + " (" + f.size + " B)";
+        var rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "ingest-remove";
+        rm.textContent = "✕";
+        rm.addEventListener("click", function () {
+          panel._ingestFiles.splice(idx, 1);
+          renderList();
+        });
+        li.appendChild(rm);
+        list.appendChild(li);
+      });
+    }
+
+    async function addFileList(fileList) {
+      var parsed = await readFilesAsPayload(fileList);
+      panel._ingestFiles = panel._ingestFiles.concat(parsed);
+      renderList();
+    }
+
+    drop.addEventListener("click", function () {
+      input.click();
+    });
+    input.addEventListener("change", function () {
+      if (input.files && input.files.length) addFileList(input.files);
+      input.value = "";
+    });
+    ["dragenter", "dragover"].forEach(function (evt) {
+      drop.addEventListener(evt, function (e) {
+        e.preventDefault();
+        drop.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (evt) {
+      drop.addEventListener(evt, function (e) {
+        e.preventDefault();
+        drop.classList.remove("dragover");
+      });
+    });
+    drop.addEventListener("drop", function (e) {
+      if (e.dataTransfer && e.dataTransfer.files) addFileList(e.dataTransfer.files);
+    });
+    return zone;
+  }
+
+  function buildLanguageMultiSelect(form) {
+    var wrap = el("div", "lang-multi");
+    wrap.innerHTML =
+      '<label class="ws-field"><span>Languages (search · multi-select)</span>' +
+      '<input type="search" class="lang-search" placeholder="Search languages…" autocomplete="off" />' +
+      "</label>" +
+      '<div class="lang-selected"></div>' +
+      '<div class="lang-options" role="listbox"></div>';
+    var search = wrap.querySelector(".lang-search");
+    var opts = wrap.querySelector(".lang-options");
+    var selectedEl = wrap.querySelector(".lang-selected");
+    var selected = ["TypeScript"];
+
+    function paintSelected() {
+      selectedEl.innerHTML = "";
+      selected.forEach(function (lang) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "lang-chip";
+        chip.textContent = lang + " ✕";
+        chip.addEventListener("click", function () {
+          selected = selected.filter(function (x) {
+            return x !== lang;
+          });
+          paintSelected();
+          paintOptions(search.value);
+        });
+        selectedEl.appendChild(chip);
+      });
+      form._languages = selected.slice();
+    }
+
+    function paintOptions(q) {
+      q = String(q || "")
+        .trim()
+        .toLowerCase();
+      opts.innerHTML = "";
+      LANGUAGE_CATALOG.filter(function (lang) {
+        return !q || lang.toLowerCase().indexOf(q) !== -1;
+      }).forEach(function (lang) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className =
+          "lang-option" + (selected.indexOf(lang) >= 0 ? " is-selected" : "");
+        btn.textContent = lang;
+        btn.addEventListener("click", function () {
+          if (selected.indexOf(lang) >= 0) {
+            selected = selected.filter(function (x) {
+              return x !== lang;
+            });
+          } else {
+            selected.push(lang);
+          }
+          paintSelected();
+          paintOptions(search.value);
+        });
+        opts.appendChild(btn);
+      });
+    }
+
+    search.addEventListener("input", function () {
+      paintOptions(search.value);
+    });
+    paintSelected();
+    paintOptions("");
+    form.appendChild(wrap);
+    form._languages = selected.slice();
+  }
+
 
   function mountMacro(macroId, opts) {
     opts = opts || {};
@@ -97,7 +283,9 @@
     panel.appendChild(chips);
 
     var form = el("div", "ws-form");
+    panel.appendChild(buildIngestZone(panel));
     meta.fields.forEach(function (f) {
+      if (f.key === "language") return; // deprecated string language field
       var lab = el("label", "ws-field");
       lab.innerHTML = "<span>" + f.label + "</span>";
       var input = document.createElement("input");
@@ -107,6 +295,9 @@
       lab.appendChild(input);
       form.appendChild(lab);
     });
+    if (meta.languageMulti || macroId === "coder") {
+      buildLanguageMultiSelect(form);
+    }
     var run = el("button", "ws-primary-btn", opts.forcedRepair ? "Execute Autonomous Repair" : "Run Macro");
     run.type = "button";
     run.addEventListener("click", function () {
@@ -128,12 +319,31 @@
     var payload = {};
     form.querySelectorAll("[data-key]").forEach(function (input) {
       var k = input.dataset.key;
+      if (k === "language") return;
       var v = input.value;
       if (input.type === "number") {
         if (v === "") return;
         payload[k] = Number(v);
       } else if (v !== "") payload[k] = v;
     });
+    // Language taxonomy: singular string or multi-stack array
+    var langs = (form._languages || []).slice();
+    if (langs.length === 1) {
+      payload.language = langs[0];
+      payload.languages = langs;
+    } else if (langs.length > 1) {
+      payload.languages = langs;
+      payload.language = langs.join(",");
+    }
+    // Universal file ingestion bound to active engine payload
+    var panel = root && root.querySelector(".ws-panel");
+    var ingested = (panel && panel._ingestFiles) || [];
+    if (ingested.length) {
+      payload.attachments = ingested;
+      payload.files = ingested.map(function (f) {
+        return { name: f.name, size: f.size, type: f.type, encoding: f.encoding };
+      });
+    }
     var meta = MACROS[macroId];
     meta.engines.forEach(function (id) {
       var iso = global.EngineIsolates.get(id);
