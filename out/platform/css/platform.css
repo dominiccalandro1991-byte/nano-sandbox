@@ -312,3 +312,52 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   color: var(--warn);
   font-size: 13px;
 }
+
+.message-list { padding-bottom: calc(12px + var(--composer-h) + var(--safe-b)); }
+.file-tree {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0a0c10;
+}
+.file-tree-head {
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+.file-tree-item summary {
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.file-tree-code {
+  margin: 0;
+  padding: 10px;
+  max-height: 280px;
+  overflow: auto;
+  font-size: 11px;
+  font-family: var(--font);
+  white-space: pre;
+  border-top: 1px solid var(--border);
+}
+.copy-file-btn {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.ws-output-expanded {
+  max-height: min(70vh, 640px) !important;
+  flex: 1 1 auto;
+}
+.ws-panel { display: flex; flex-direction: column; min-height: 0; }

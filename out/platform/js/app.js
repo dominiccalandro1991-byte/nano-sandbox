@@ -52,14 +52,8 @@
     if (!list || !window.ChatPartition) return;
     var st = window.ChatPartition.getState();
     list.innerHTML = "";
-    if (!st.messages.length) {
-      var empty = document.createElement("div");
-      empty.className = "msg assistant";
-      empty.innerHTML =
-        "<div class=\"msg-meta\">Studio</div>Select a model, pick a persona, and send a message. Engines &amp; AEGIS are in the ☰ menu.";
-      list.appendChild(empty);
-      return;
-    }
+    if (!st.messages.length) return;
+
     st.messages.forEach(function (m) {
       var div = document.createElement("div");
       div.className = "msg " + m.role + (m.failed ? " failed" : "");
@@ -68,9 +62,22 @@
       meta.textContent =
         m.role === "user" ? "You" : (st.persona && st.persona.name) || "Assistant";
       var body = document.createElement("div");
+      body.className = "msg-body";
       body.textContent = m.content || "";
       div.appendChild(meta);
       div.appendChild(body);
+      if (m.files && m.files.length && window.CodegenUtils) {
+        var tree = document.createElement("div");
+        tree.innerHTML = window.CodegenUtils.renderFileTreeHtml(m.files);
+        div.appendChild(tree);
+        tree.querySelectorAll(".copy-file-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var idx = Number(btn.getAttribute("data-idx"));
+            var f = m.files[idx];
+            if (f && navigator.clipboard) navigator.clipboard.writeText(f.content);
+          });
+        });
+      }
       list.appendChild(div);
     });
     list.scrollTop = list.scrollHeight;
@@ -135,7 +142,11 @@
     if ($("send-btn")) $("send-btn").disabled = true;
     renderMessages();
     try {
-      await window.ChatPartition.sendUserMessage(text);
+      await window.ChatPartition.sendUserMessage(text, {
+        onUpdate: function () {
+          renderMessages();
+        }
+      });
     } catch (e) {}
     streaming = false;
     if ($("send-btn")) $("send-btn").disabled = false;

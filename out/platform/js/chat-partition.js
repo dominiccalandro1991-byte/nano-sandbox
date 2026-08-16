@@ -1,6 +1,6 @@
 /**
- * Chat Core Partition — virtual branch isolated from AST/codegen orchestrators.
- * Namespace: ChatPartition.* only. Never shares mutable refs with EngineIsolates.
+ * Chat Core Partition — streaming LLM + multi-pass continuation.
+ * Isolated from EngineIsolates / AST plane.
  */
 (function (global) {
   "use strict";
@@ -22,7 +22,6 @@
     { id: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B (Generalist)", cat: "general" }
   ];
 
-  // Strictly partitioned chat state (not on EngineIsolates)
   var chatState = {
     personaId: "vail-cipher",
     modelId: "google/gemma-4-26b-a4b-it:free",
@@ -30,6 +29,17 @@
     streaming: false,
     threadId: "thread_" + Date.now().toString(36)
   };
+
+  function backendBase() {
+    try {
+      if (global.__NNACC_REMOTE__ && /^https?:\/\//i.test(global.__NNACC_REMOTE__)) {
+        return String(global.__NNACC_REMOTE__).replace(/\/$/, "");
+      }
+      var s = localStorage.getItem("nnacc-v2-remote") || localStorage.getItem("vcs-remote") || "";
+      if (s && /^https?:\/\//i.test(s)) return s.replace(/\/$/, "");
+    } catch (e) {}
+    return (global.NASE_Daemon && global.NASE_Daemon.backendBase()) || "https://nano-sandbox-api.onrender.com";
+  }
 
   function getPersona() {
     return (
@@ -39,56 +49,171 @@
     );
   }
 
-  async function sendUserMessage(text) {
-    if (!text || chatState.streaming) return null;
-    chatState.streaming = true;
-    chatState.messages.push({ role: "user", content: text, ts: Date.now() });
-    var history = chatState.messages
+  function historyMessages() {
+    return chatState.messages
       .filter(function (m) {
-        return m.role === "user" || m.role === "assistant";
+        return (m.role === "user" || m.role === "assistant") && m.content && !m.failed;
       })
-      .slice(0, -1)
       .map(function (m) {
         return { role: m.role, content: m.content };
       });
-    var messages = history.concat([{ role: "user", content: text }]);
-    var base =
-      (global.NASE_Daemon && global.NASE_Daemon.backendBase()) ||
-      "https://nano-sandbox-api.onrender.com";
+  }
+
+  async function postChat(messages, onToken) {
+    var modelId = chatState.modelId;
+    var maxOut =
+      global.CodegenUtils && global.CodegenUtils.computeMaxOut
+        ? global.CodegenUtils.computeMaxOut(modelId, messages)
+        : 8192;
+    var base = backendBase();
+
+    // Prefer SSE stream
     try {
-      var res = await fetch(base + "/llm/chat", {
+      var res = await fetch(base + "/llm/chat/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({
-          model: chatState.modelId,
+          model: modelId,
           messages: messages,
-          persona: chatState.personaId
+          persona: chatState.personaId,
+          max_tokens: maxOut,
+          stream: true
         })
       });
-      var body = await res.json().catch(function () {
-        return {};
-      });
-      if (!res.ok) {
-        var detail = body.detail;
-        if (typeof detail === "object") detail = detail.message || JSON.stringify(detail);
-        throw new Error(detail || "LLM HTTP " + res.status);
+      if (res.ok && res.body) {
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var full = "";
+        var buf = "";
+        var finish = null;
+        while (true) {
+          var chunk = await reader.read();
+          if (chunk.done) break;
+          buf += decoder.decode(chunk.value, { stream: true });
+          var parts = buf.split("\n");
+          buf = parts.pop() || "";
+          for (var i = 0; i < parts.length; i++) {
+            var line = parts[i].trim();
+            if (!line.indexOf("data:") === 0 && line.indexOf("data: ") !== 0) continue;
+            var data = line.replace(/^data:\s*/, "");
+            if (data === "[DONE]") continue;
+            try {
+              var j = JSON.parse(data);
+              if (j.error) throw new Error(typeof j.error === "string" ? j.error : JSON.stringify(j.error));
+              var delta =
+                j.choices &&
+                j.choices[0] &&
+                j.choices[0].delta &&
+                j.choices[0].delta.content;
+              if (delta) {
+                full += delta;
+                if (onToken) onToken(delta, full);
+              }
+              if (j.choices && j.choices[0] && j.choices[0].finish_reason) {
+                finish = j.choices[0].finish_reason;
+              }
+            } catch (e) {
+              if (e && e.message && e.message.indexOf("JSON") === -1) throw e;
+            }
+          }
+        }
+        return {
+          content: full,
+          finish_reason: finish,
+          continue_needed: finish === "length",
+          max_tokens_used: maxOut
+        };
       }
-      var content = body.content || body.result || "";
-      chatState.messages.push({
-        role: "assistant",
-        content: content,
-        model: chatState.modelId,
-        ts: Date.now()
+    } catch (streamErr) {
+      try {
+        console.warn("[ChatPartition] stream fallback", streamErr);
+      } catch (e) {}
+    }
+
+    // Non-stream fallback
+    var res2 = await fetch(base + "/llm/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        model: modelId,
+        messages: messages,
+        persona: chatState.personaId,
+        max_tokens: maxOut
+      })
+    });
+    var body = await res2.json().catch(function () {
+      return {};
+    });
+    if (!res2.ok) {
+      var detail = body.detail;
+      if (typeof detail === "object") detail = detail.message || JSON.stringify(detail);
+      throw new Error(detail || "LLM HTTP " + res2.status);
+    }
+    var content = body.content || body.result || "";
+    if (onToken && content) onToken(content, content);
+    return body;
+  }
+
+  async function sendUserMessage(text, opts) {
+    opts = opts || {};
+    if (!text || chatState.streaming) return null;
+    chatState.streaming = true;
+    chatState.messages.push({ role: "user", content: text, ts: Date.now() });
+    var assistant = {
+      role: "assistant",
+      content: "",
+      model: chatState.modelId,
+      ts: Date.now(),
+      files: []
+    };
+    chatState.messages.push(assistant);
+    if (opts.onUpdate) opts.onUpdate(assistant);
+
+    try {
+      var msgs = historyMessages().slice(0, -1);
+      msgs.push({ role: "user", content: text });
+      var result = await postChat(msgs, function (delta, full) {
+        assistant.content = full;
+        if (opts.onUpdate) opts.onUpdate(assistant);
       });
-      return content;
+      assistant.content = result.content || result.result || assistant.content;
+      assistant.finish_reason = result.finish_reason;
+      var pass = 0;
+      var maxPasses = 4;
+      while (
+        pass < maxPasses &&
+        global.CodegenUtils &&
+        global.CodegenUtils.needsContinuation(assistant.content, result)
+      ) {
+        pass++;
+        var contUser =
+          "CONTINUE from the exact point you stopped. Output only the remainder. Keep using path-tagged Markdown code fences for files. Pass " +
+          (pass + 1) +
+          ".";
+        var contMsgs = historyMessages().concat([
+          { role: "assistant", content: assistant.content },
+          { role: "user", content: contUser }
+        ]);
+        // Don't push continuation prompts into visible history — keep single assistant bubble
+        result = await postChat(contMsgs, function (delta, full) {
+          assistant.content =
+            assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + full;
+          if (opts.onUpdate) opts.onUpdate(assistant);
+        });
+        var more = result.content || result.result || "";
+        assistant.content =
+          assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + more;
+      }
+      if (global.CodegenUtils && global.CodegenUtils.extractFileTree) {
+        assistant.files = global.CodegenUtils.extractFileTree(assistant.content);
+      }
+      if (opts.onUpdate) opts.onUpdate(assistant);
+      return assistant.content;
     } catch (err) {
       var msg = err && err.message ? err.message : String(err);
-      chatState.messages.push({
-        role: "assistant",
-        content: msg,
-        failed: true,
-        ts: Date.now()
-      });
+      assistant.content = msg;
+      assistant.failed = true;
+      if (opts.onUpdate) opts.onUpdate(assistant);
       throw err;
     } finally {
       chatState.streaming = false;
@@ -127,10 +252,10 @@
       };
     },
     setPersona: function (id) {
-      chatState.personaId = id;
+      chatState.personaId = id || "vail-cipher";
     },
     setModel: function (id) {
-      chatState.modelId = id;
+      chatState.modelId = id || chatState.modelId;
     },
     sendUserMessage: sendUserMessage,
     deleteThread: deleteThread,

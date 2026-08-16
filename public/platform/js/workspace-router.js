@@ -159,11 +159,30 @@
           else iso.setError("HTTP " + res.status);
         }
       });
-      if (out) out.textContent = JSON.stringify(body, null, 2);
+      var textOut = JSON.stringify(body, null, 2);
+      if (out) {
+        out.textContent = textOut;
+        out.classList.add("ws-output-expanded");
+      }
       // O(1) repaint: re-mount same route to refresh chips
       mountMacro(macroId, {});
       var out2 = document.getElementById("ws-macro-output");
-      if (out2) out2.textContent = JSON.stringify(body, null, 2);
+      if (out2) {
+        out2.textContent = textOut;
+        out2.classList.add("ws-output-expanded");
+        var blob = textOut;
+        if (body && (body.content || body.result)) {
+          blob = String(body.content || body.result);
+        }
+        if (macroId === "coder" && global.CodegenUtils) {
+          var files = global.CodegenUtils.extractFileTree(blob);
+          if (files.length) {
+            var wrap = document.createElement("div");
+            wrap.innerHTML = global.CodegenUtils.renderFileTreeHtml(files);
+            out2.parentNode.appendChild(wrap);
+          }
+        }
+      }
       if (global.NASE_Daemon) global.NASE_Daemon.probe();
     } catch (err) {
       meta.engines.forEach(function (id) {
