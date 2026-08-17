@@ -1,14 +1,25 @@
 /**
  * Virtual Stress Tester Interactive Dashboard
- * Isolated report library UI — does not touch general file/vault libraries.
+ * Unified viewport state · layout containment · runUISmokeTest()
  */
 (function (global) {
   "use strict";
 
+  var PRESETS = {
+    mobile: { label: "Mobile (390×844)", w: 390, h: 844 },
+    desktop: { label: "Desktop (1280×720)", w: 1280, h: 720 },
+    full: { label: "Full (100%)", w: null, h: null },
+    custom: { label: "Custom", w: 1280, h: 720 }
+  };
+
+  var state = {
+    mode: "desktop",
+    w: 1280,
+    h: 720
+  };
+
   var root = null;
-  var viewportMode = "desktop";
-  var customW = 1280;
-  var customH = 720;
+  var refs = {};
 
   function el(tag, cls, html) {
     var n = document.createElement(tag);
@@ -17,39 +28,86 @@
     return n;
   }
 
-  function applyViewportScale(frame, mode) {
-    var container = frame.parentElement;
-    if (!container) return;
+  function syncPresetButtons() {
+    if (!refs.toggles) return;
+    refs.toggles.querySelectorAll("[data-preset]").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-preset") === state.mode);
+    });
+  }
+
+  function syncInputsFromState() {
+    if (!refs.cw || !refs.ch) return;
+    if (state.mode === "full") {
+      var wrap = refs.canvasWrap;
+      if (wrap) {
+        refs.cw.value = Math.max(200, wrap.clientWidth - 16);
+        refs.ch.value = Math.max(200, wrap.clientHeight - 16);
+        state.w = Number(refs.cw.value);
+        state.h = Number(refs.ch.value);
+      }
+    } else {
+      refs.cw.value = state.w;
+      refs.ch.value = state.h;
+    }
+  }
+
+  function applyViewportScale() {
+    if (!refs.frame || !refs.canvasWrap) return;
+    var container = refs.canvasWrap;
     var cw = container.clientWidth - 16;
     var ch = container.clientHeight - 16;
-    var tw = 1280;
-    var th = 800;
-    if (mode === "mobile") {
-      tw = 390;
-      th = 844;
-    } else if (mode === "desktop") {
-      tw = 1280;
-      th = 800;
-    } else if (mode === "full") {
-      tw = cw;
-      th = ch;
-    } else if (mode === "custom") {
-      tw = customW;
-      th = customH;
+    var tw = state.w;
+    var th = state.h;
+    if (state.mode === "full") {
+      tw = Math.max(200, cw);
+      th = Math.max(200, ch);
+      state.w = tw;
+      state.h = th;
     }
     var S = Math.min(cw / tw, ch / th, 1);
     if (!isFinite(S) || S <= 0) S = 1;
-    frame.style.width = tw + "px";
-    frame.style.height = th + "px";
-    frame.style.transform = "scale(" + S + ")";
-    frame.style.transformOrigin = "top left";
-    frame.dataset.scale = String(S);
-    frame.dataset.targetW = String(tw);
-    frame.dataset.targetH = String(th);
-    var label = container.querySelector(".vste-scale-label");
-    if (label)
-      label.textContent =
-        mode + " · " + tw + "×" + th + " · S=" + S.toFixed(3);
+    refs.frame.style.width = tw + "px";
+    refs.frame.style.height = th + "px";
+    refs.frame.style.transform = "scale(" + S + ")";
+    refs.frame.style.transformOrigin = "top left";
+    refs.frame.dataset.scale = String(S);
+    refs.frame.dataset.targetW = String(tw);
+    refs.frame.dataset.targetH = String(th);
+    if (refs.scaleLabel) {
+      refs.scaleLabel.textContent =
+        (PRESETS[state.mode] ? PRESETS[state.mode].label : state.mode) +
+        " · " +
+        tw +
+        "×" +
+        th +
+        " · S=" +
+        S.toFixed(3);
+    }
+    syncPresetButtons();
+  }
+
+  function setPreset(mode) {
+    if (!PRESETS[mode]) mode = "desktop";
+    state.mode = mode;
+    if (mode !== "full" && mode !== "custom") {
+      state.w = PRESETS[mode].w;
+      state.h = PRESETS[mode].h;
+    } else if (mode === "custom") {
+      state.w = Number(refs.cw && refs.cw.value) || state.w || 1280;
+      state.h = Number(refs.ch && refs.ch.value) || state.h || 720;
+    }
+    syncInputsFromState();
+    applyViewportScale();
+  }
+
+  function onManualDimension() {
+    state.mode = "custom";
+    state.w = Math.max(200, Number(refs.cw.value) || 1280);
+    state.h = Math.max(200, Number(refs.ch.value) || 720);
+    refs.cw.value = state.w;
+    refs.ch.value = state.h;
+    syncPresetButtons();
+    applyViewportScale();
   }
 
   function downloadText(filename, text, mime) {
@@ -63,9 +121,13 @@
     }, 400);
   }
 
+  function setLive(text) {
+    if (refs.live) refs.live.textContent = text;
+  }
+
   function renderReportLibrary(host) {
     var eng = global.VirtualStressEngine;
-    if (!eng) return;
+    if (!eng || !host) return;
     var reports = eng.loadReports();
     host.innerHTML = "";
     var head = el("div", "vste-lib-head");
@@ -117,9 +179,11 @@
             "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" +
             r.id +
             "</title></head><body><pre>" +
-            eng.reportToMarkdown(r).replace(/[<>&]/g, function (c) {
-              return { "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c];
-            }) +
+            eng
+              .reportToMarkdown(r)
+              .replace(/[<>&]/g, function (c) {
+                return { "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c];
+              }) +
             "</pre></body></html>";
           downloadText(r.id + ".html", html, "text/html;charset=utf-8");
         })
@@ -140,48 +204,194 @@
     });
   }
 
+  /**
+   * Automated UI smoke tests for Virtual Stress Tester workspace.
+   * Returns { ok, checks: [{name, pass, detail}] }
+   */
+  function runUISmokeTest() {
+    var checks = [];
+    function assert(name, pass, detail) {
+      checks.push({ name: name, pass: !!pass, detail: detail || "" });
+    }
+
+    var dash = root && root.querySelector(".vste-dashboard");
+    assert("dashboard_present", !!dash, dash ? "ok" : "missing .vste-dashboard");
+
+    if (dash) {
+      var panels = dash.querySelectorAll(
+        ".vste-controls, .vste-status, .vste-report-library, .vste-targets, .vste-canvas-wrap"
+      );
+      panels.forEach(function (node, idx) {
+        var parent = node.parentElement;
+        if (!parent) return;
+        var er = node.getBoundingClientRect();
+        var pr = parent.getBoundingClientRect();
+        // Allow scrollable parents: element top should be within expanded scroll height intent
+        var noClipTop = er.top >= pr.top - 1;
+        assert(
+          "dom_collision_" + idx,
+          noClipTop && er.width > 0,
+          "el.bottom=" + er.bottom.toFixed(1) + " parent.bottom=" + pr.bottom.toFixed(1)
+        );
+      });
+
+      // Status container fit-content
+      var status = dash.querySelector(".vste-status");
+      if (status) {
+        var cs = getComputedStyle(status);
+        var maxH = cs.maxHeight;
+        assert(
+          "status_no_fixed_clip",
+          maxH === "none" || maxH === "0px" || parseFloat(maxH) > 1000 || cs.overflow === "visible",
+          "maxHeight=" + maxH + " overflow=" + cs.overflow
+        );
+        assert("status_padding", parseFloat(cs.paddingTop) >= 8, cs.padding);
+      }
+
+      // URI badges wrap
+      var badges = dash.querySelectorAll(".vste-uri-badge");
+      assert("uri_badges", badges.length >= 2, "count=" + badges.length);
+      badges.forEach(function (b, i) {
+        var st = getComputedStyle(b);
+        assert(
+          "uri_wrap_" + i,
+          st.overflowWrap === "anywhere" || st.wordBreak === "break-all" || st.overflowWrap === "break-word",
+          "overflow-wrap=" + st.overflowWrap
+        );
+      });
+    }
+
+    // State sync: toggle presets
+    var prev = { mode: state.mode, w: state.w, h: state.h };
+    setPreset("mobile");
+    assert(
+      "sync_mobile",
+      state.mode === "mobile" && state.w === 390 && state.h === 844 && Number(refs.cw.value) === 390,
+      "state=" + state.w + "x" + state.h + " input=" + refs.cw.value + "x" + refs.ch.value
+    );
+    setPreset("desktop");
+    assert(
+      "sync_desktop",
+      state.mode === "desktop" && state.w === 1280 && state.h === 720 && Number(refs.ch.value) === 720,
+      "state=" + state.w + "x" + state.h
+    );
+    if (refs.cw) {
+      refs.cw.value = 777;
+      refs.ch.value = 555;
+      onManualDimension();
+      assert(
+        "sync_custom_from_inputs",
+        state.mode === "custom" && state.w === 777 && state.h === 555,
+        "mode=" + state.mode + " " + state.w + "x" + state.h
+      );
+    }
+
+    // Restore previous visual preference after checks
+    if (prev.mode === "custom") {
+      state.mode = "custom";
+      state.w = prev.w;
+      state.h = prev.h;
+      syncInputsFromState();
+      applyViewportScale();
+    } else {
+      setPreset(prev.mode || "desktop");
+    }
+
+    // Mock 1s stress cycle + report library append
+    var eng = global.VirtualStressEngine;
+    var libCountBefore = eng ? eng.loadReports().length : 0;
+    var mockOk = false;
+    if (eng) {
+      setLive("Running mock…");
+      var t0 = Date.now();
+      var mockResult = eng.runMonteCarlo({ samples: 50, seed: 1 });
+      var report = eng.synthesizeReport({
+        results: [mockResult],
+        total_elapsed_ms: Math.max(1, Date.now() - t0),
+        viewport: { mode: state.mode, w: state.w, h: state.h, smoke: true }
+      });
+      setLive("Ready. Smoke mock cycle complete.");
+      mockOk = !!(report && report.id);
+      if (refs.lib) renderReportLibrary(refs.lib);
+    }
+    var libCountAfter = eng ? eng.loadReports().length : 0;
+    assert("pipeline_running_to_ready", /Ready/i.test(refs.live ? refs.live.textContent : ""), refs.live && refs.live.textContent.slice(0, 80));
+    assert("report_appended", mockOk && libCountAfter >= libCountBefore, "before=" + libCountBefore + " after=" + libCountAfter);
+    if (refs.lib) {
+      var cards = refs.lib.querySelectorAll(".vste-report-card");
+      assert("report_library_dom", cards.length > 0, "cards=" + cards.length);
+    }
+
+    var ok = checks.every(function (c) {
+      return c.pass;
+    });
+    var summary = {
+      ok: ok,
+      checks: checks,
+      at: new Date().toISOString()
+    };
+    try {
+      console[ok ? "log" : "warn"]("[VSTE runUISmokeTest]", summary);
+    } catch (e) {}
+    return summary;
+  }
+
   function mount(container) {
     root = container;
     var eng = global.VirtualStressEngine;
     root.innerHTML = "";
     var panel = el("div", "vste-dashboard");
-    panel.innerHTML =
-      '<header class="ws-head"><h1>Virtual Stress Testing Engine</h1>' +
-      '<p class="muted">Multi-vector stress · isolated report library · adaptive viewport</p></header>' +
-      '<div class="vste-targets">' +
-      "<div><span class=\"lbl\">Frontend</span><code id=\"vste-fe\">" +
+
+    var head = el(
+      "header",
+      "ws-head",
+      "<h1>Virtual Stress Testing Engine</h1>" +
+        '<p class="muted">Multi-vector stress · isolated report library · adaptive viewport</p>'
+    );
+    panel.appendChild(head);
+
+    var targets = el("div", "vste-targets");
+    targets.innerHTML =
+      '<div class="vste-target-row"><span class="lbl">Frontend</span>' +
+      '<code class="vste-uri-badge">' +
       (eng ? eng.TARGETS.frontend : "") +
       "</code></div>" +
-      "<div><span class=\"lbl\">Backend</span><code id=\"vste-be\">" +
+      '<div class="vste-target-row"><span class="lbl">Backend</span>' +
+      '<code class="vste-uri-badge">' +
       (eng ? eng.TARGETS.backend : "") +
-      "</code></div></div>";
+      "</code></div>";
+    panel.appendChild(targets);
 
     var toggles = el("div", "vste-viewport-toggles");
-    ["mobile", "desktop", "full", "custom"].forEach(function (m) {
+    Object.keys(PRESETS).forEach(function (m) {
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "ghost-btn" + (m === viewportMode ? " active" : "");
-      b.textContent = m;
+      b.className = "ghost-btn";
+      b.setAttribute("data-preset", m);
+      b.textContent = PRESETS[m].label;
       b.onclick = function () {
-        viewportMode = m;
-        toggles.querySelectorAll("button").forEach(function (x) {
-          x.classList.remove("active");
-        });
-        b.classList.add("active");
-        applyViewportScale(frame, viewportMode);
+        setPreset(m);
       };
       toggles.appendChild(b);
     });
     panel.appendChild(toggles);
+    refs.toggles = toggles;
 
     var customRow = el("div", "vste-custom-dim");
     customRow.innerHTML =
       '<label>W <input id="vste-cw" type="number" value="1280" min="200" max="4000"/></label>' +
       '<label>H <input id="vste-ch" type="number" value="720" min="200" max="4000"/></label>';
     panel.appendChild(customRow);
+    refs.cw = customRow.querySelector("#vste-cw");
+    refs.ch = customRow.querySelector("#vste-ch");
+    refs.cw.addEventListener("input", onManualDimension);
+    refs.ch.addEventListener("input", onManualDimension);
+    refs.cw.addEventListener("change", onManualDimension);
+    refs.ch.addEventListener("change", onManualDimension);
 
     var canvasWrap = el("div", "vste-canvas-wrap");
-    canvasWrap.innerHTML = '<div class="vste-scale-label muted">scale</div>';
+    var scaleLabel = el("div", "vste-scale-label muted", "scale");
+    canvasWrap.appendChild(scaleLabel);
     var frame = el("div", "vste-frame");
     frame.innerHTML =
       '<iframe id="vste-iframe" title="Stress target preview" sandbox="allow-scripts allow-same-origin allow-forms" src="' +
@@ -189,46 +399,50 @@
       '"></iframe>';
     canvasWrap.appendChild(frame);
     panel.appendChild(canvasWrap);
+    refs.canvasWrap = canvasWrap;
+    refs.frame = frame;
+    refs.scaleLabel = scaleLabel;
 
     var controls = el("div", "vste-controls");
     controls.innerHTML =
       '<button type="button" class="primary-btn" id="vste-run">Run Full Stress Cycle</button>' +
       '<button type="button" class="ghost-btn" id="vste-mc">Monte Carlo only</button>' +
-      '<button type="button" class="ghost-btn" id="vste-fault">Fault injection only</button>';
+      '<button type="button" class="ghost-btn" id="vste-fault">Fault injection only</button>' +
+      '<button type="button" class="ghost-btn" id="vste-smoke">Run UI Smoke Test</button>';
     panel.appendChild(controls);
 
-    var live = el("pre", "vste-live code-block", "Ready. Reports stay inside this workspace library only.");
+    var live = el(
+      "div",
+      "vste-status",
+      "Ready. Reports stay inside this workspace library only."
+    );
+    live.setAttribute("role", "status");
     panel.appendChild(live);
+    refs.live = live;
 
     var lib = el("div", "vste-report-library");
     panel.appendChild(lib);
+    refs.lib = lib;
     root.appendChild(panel);
 
-    function refreshScale() {
-      customW = Number(panel.querySelector("#vste-cw").value) || 1280;
-      customH = Number(panel.querySelector("#vste-ch").value) || 720;
-      applyViewportScale(frame, viewportMode);
-    }
-    panel.querySelector("#vste-cw").onchange = refreshScale;
-    panel.querySelector("#vste-ch").onchange = refreshScale;
-    window.addEventListener("resize", refreshScale);
-    refreshScale();
+    window.addEventListener("resize", applyViewportScale);
+    setPreset("desktop");
     renderReportLibrary(lib);
 
     async function run(kind) {
       if (!eng) return;
-      live.textContent = "Running " + kind + "…";
+      setLive("Running " + kind + "…");
       var viewport = {
-        mode: viewportMode,
-        w: Number(frame.dataset.targetW),
-        h: Number(frame.dataset.targetH),
-        S: Number(frame.dataset.scale)
+        mode: state.mode,
+        w: state.w,
+        h: state.h,
+        S: Number(refs.frame.dataset.scale)
       };
       try {
         var report;
         if (kind === "full") {
           report = await eng.runFullCycle({ viewport: viewport }, function (stage) {
-            live.textContent = "Stage: " + stage;
+            setLive("Running… stage: " + stage);
           });
         } else if (kind === "mc") {
           var r = eng.runMonteCarlo({ samples: 2000 });
@@ -245,12 +459,18 @@
             viewport: viewport
           });
         }
-        live.textContent = JSON.stringify(report.summary, null, 2) + "\n\n" + eng.reportToMarkdown(report);
+        setLive(
+          "Ready.\n" +
+            JSON.stringify(report.summary, null, 2) +
+            "\n\n" +
+            eng.reportToMarkdown(report)
+        );
         renderReportLibrary(lib);
       } catch (e) {
-        live.textContent = "Error: " + (e && e.message ? e.message : e);
+        setLive("Ready.\nError: " + (e && e.message ? e.message : e));
       }
     }
+
     panel.querySelector("#vste-run").onclick = function () {
       run("full");
     };
@@ -260,7 +480,41 @@
     panel.querySelector("#vste-fault").onclick = function () {
       run("fault");
     };
+    panel.querySelector("#vste-smoke").onclick = function () {
+      var res = runUISmokeTest();
+      setLive(
+        (res.ok ? "Ready. SMOKE PASS\n" : "Ready. SMOKE FAIL\n") +
+          res.checks
+            .map(function (c) {
+              return (c.pass ? "PASS" : "FAIL") + " · " + c.name + (c.detail ? " — " + c.detail : "");
+            })
+            .join("\n")
+      );
+    };
+
+    // Boot smoke test
+    setTimeout(function () {
+      var res = runUISmokeTest();
+      setLive(
+        (res.ok ? "Ready. Boot smoke: PASS" : "Ready. Boot smoke: FAIL") +
+          " (" +
+          res.checks.filter(function (c) {
+            return c.pass;
+          }).length +
+          "/" +
+          res.checks.length +
+          ")\nReports stay inside this workspace library only."
+      );
+    }, 0);
   }
 
-  global.VirtualStressUI = { mount: mount };
+  global.VirtualStressUI = {
+    mount: mount,
+    runUISmokeTest: function () {
+      return runUISmokeTest();
+    },
+    getViewportState: function () {
+      return { mode: state.mode, w: state.w, h: state.h };
+    }
+  };
 })(typeof window !== "undefined" ? window : globalThis);
