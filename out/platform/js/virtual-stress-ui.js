@@ -461,6 +461,13 @@
         }
         setLive(
           "Ready.\n" +
+            "vectors_complete: " +
+            JSON.stringify(
+              (report.summary && report.summary.vectors_complete) ||
+                (report.summary && report.summary.vectors) ||
+                []
+            ) +
+            "\n" +
             JSON.stringify(report.summary, null, 2) +
             "\n\n" +
             eng.reportToMarkdown(report)

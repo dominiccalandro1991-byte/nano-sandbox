@@ -19,24 +19,47 @@
       : Date.now();
   }
 
+  /** Mobile WebKit polyfill: track JS-owned ArrayBuffer/typed-array allocations */
+  var HeapTracker = {
+    allocated: 0,
+    peak: 0,
+    track: function (bytes) {
+      this.allocated += bytes;
+      if (this.allocated > this.peak) this.peak = this.allocated;
+    },
+    release: function (bytes) {
+      this.allocated = Math.max(0, this.allocated - bytes);
+    },
+    reset: function () {
+      this.allocated = 0;
+      this.peak = 0;
+    }
+  };
+
   function sampleHeap() {
     var mem =
       typeof performance !== "undefined" && performance.memory
         ? performance.memory
         : null;
-    if (!mem) {
+    if (mem && typeof mem.usedJSHeapSize === "number") {
       return {
-        supported: false,
-        usedJSHeapSize: null,
-        totalJSHeapSize: null,
-        jsHeapSizeLimit: null
+        supported: true,
+        source: "performance.memory",
+        usedJSHeapSize: mem.usedJSHeapSize,
+        totalJSHeapSize: mem.totalJSHeapSize,
+        jsHeapSizeLimit: mem.jsHeapSizeLimit,
+        polyfill_allocated: HeapTracker.allocated,
+        polyfill_peak: HeapTracker.peak
       };
     }
     return {
       supported: true,
-      usedJSHeapSize: mem.usedJSHeapSize,
-      totalJSHeapSize: mem.totalJSHeapSize,
-      jsHeapSizeLimit: mem.jsHeapSizeLimit
+      source: "polyfill_arraybuffer_tracker",
+      usedJSHeapSize: HeapTracker.allocated,
+      totalJSHeapSize: HeapTracker.peak,
+      jsHeapSizeLimit: null,
+      polyfill_allocated: HeapTracker.allocated,
+      polyfill_peak: HeapTracker.peak
     };
   }
 
@@ -253,6 +276,7 @@
           buf[size - 1] = (i * 17) & 255;
           held.push(buf);
           allocated += size;
+          HeapTracker.track(size);
           var mid = sampleHeap();
           if (mid.supported && mid.usedJSHeapSize > peakUsed) peakUsed = mid.usedJSHeapSize;
         } catch (inner) {
@@ -283,9 +307,11 @@
 
     var elapsed = now() - t0;
     var heapAfterHold = sampleHeap();
-    // release — observe GC opportunity
+    // release — observe GC opportunity + polyfill release
+    var released = allocated;
     held.length = 0;
     held = null;
+    HeapTracker.release(released);
     var tGc0 = now();
     // force minor churn to encourage GC observation
     for (var g = 0; g < 1000; g++) {
@@ -392,6 +418,59 @@
     });
   }
 
+  function percentile(sorted, p) {
+    if (!sorted.length) return 0;
+    var idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
+    return sorted[idx];
+  }
+
+  async function measureNetworkRtt(url, samples, timeoutMs) {
+    samples = Math.min(Math.max(samples || 9, 3), 30);
+    var latencies = [];
+    var errors = [];
+    for (var i = 0; i < samples; i++) {
+      var t0 = now();
+      try {
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () {
+          ctrl.abort();
+        }, timeoutMs || 8000);
+        await fetch(url, {
+          method: "GET",
+          mode: "cors",
+          cache: "no-store",
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        latencies.push(now() - t0);
+      } catch (e) {
+        var ms = now() - t0;
+        latencies.push(ms);
+        errors.push({
+          sample: i,
+          latency_ms: ms,
+          exception: stackFromError(e),
+          error_code: e && e.name ? e.name : "fetch_error"
+        });
+      }
+    }
+    var sorted = latencies.slice().sort(function (a, b) {
+      return a - b;
+    });
+    return {
+      url: url,
+      samples: samples,
+      latencies_ms: latencies,
+      latency_p50: percentile(sorted, 0.5),
+      latency_p95: percentile(sorted, 0.95),
+      latency_p99: percentile(sorted, 0.99),
+      latency_min: sorted[0] || 0,
+      latency_max: sorted[sorted.length - 1] || 0,
+      error_count: errors.length,
+      errors: errors.slice(0, 10)
+    };
+  }
+
   async function faultInjectionMatrix(opts) {
     opts = opts || {};
     var frontend = opts.frontend || TARGETS.frontend;
@@ -401,6 +480,15 @@
     var failures = 0;
     var heapBefore = sampleHeap();
     var tAll = now();
+
+    // Real async multi-sample RTT against hardcoded targets
+    var feRtt = await measureNetworkRtt(frontend, opts.rttSamples || 9, opts.timeoutMs || 8000);
+    var beRtt = await measureNetworkRtt(backend, opts.rttSamples || 9, opts.timeoutMs || 8000);
+    var beHealthRtt = await measureNetworkRtt(
+      backend.replace(/\/$/, "") + "/health",
+      opts.rttSamples || 7,
+      opts.timeoutMs || 8000
+    );
 
     async function probe(name, url, init) {
       var t0 = now();
@@ -415,7 +503,7 @@
         }, opts.timeoutMs || 8000);
         var res = await fetch(
           url,
-          Object.assign({ signal: ctrl.signal, mode: "cors" }, init || {})
+          Object.assign({ signal: ctrl.signal, mode: "cors", cache: "no-store" }, init || {})
         );
         clearTimeout(timer);
         status = res.status;
@@ -435,9 +523,7 @@
           e && e.name === "AbortError"
             ? "timeout"
             : String(e && e.message ? e.message : e);
-        if (/Failed to fetch|NetworkError|CORS/i.test(err)) {
-          err = "network_or_cors";
-        }
+        if (/Failed to fetch|NetworkError|CORS/i.test(err)) err = "network_or_cors";
         failures++;
         failureTelemetry.push({
           index: results.length,
@@ -470,13 +556,25 @@
       headers: { "Content-Type": "application/json" },
       body: "{not-json"
     });
+    // Forced short-timeout packet-drop simulation
     await probe("frontend_timeout_sim", frontend, { method: "GET" });
 
     var heapAfter = sampleHeap();
     return {
       vector: "fault_injection",
-      equation: "F={timeout,corrupt,unreachable}; R=status∈2xx∨opaque",
+      equation: "RTT p50/p95/p99 over N fetch samples; F={timeout,corrupt,unreachable}",
       targets: TARGETS,
+      network_rtt: {
+        frontend: feRtt,
+        backend: beRtt,
+        backend_health: beHealthRtt
+      },
+      latency_p50: feRtt.latency_p50,
+      latency_p95: feRtt.latency_p95,
+      latency_p99: feRtt.latency_p99,
+      backend_latency_p50: beRtt.latency_p50,
+      backend_latency_p95: beRtt.latency_p95,
+      backend_latency_p99: beRtt.latency_p99,
       probes: results,
       failures: failures,
       success_rate:
@@ -523,6 +621,10 @@
         vectors: (cycle.results || []).map(function (r) {
           return r.vector;
         }),
+        vector_count: (cycle.results || []).length,
+        vectors_complete: cycle.vectors_complete || (cycle.results || []).map(function (r) {
+          return r.vector;
+        }),
         total_elapsed_ms: cycle.total_elapsed_ms,
         total_failures: (cycle.results || []).reduce(function (s, r) {
           return s + (r.failures || 0);
@@ -547,24 +649,82 @@
   async function runFullCycle(opts, onProgress) {
     opts = opts || {};
     var t0 = now();
+    HeapTracker.reset();
     var heapBefore = sampleHeap();
     var results = [];
     function prog(msg, data) {
       if (onProgress) onProgress(msg, data);
     }
-    prog("monte_carlo_fuzz");
-    results.push(runMonteCarlo(opts.monteCarlo));
-    prog("complexity_profiling");
-    results.push(profileComplexity(opts.complexity));
-    prog("memory_exhaustion");
-    results.push(memoryExhaustion(opts.memory));
-    prog("concurrency_pool");
-    results.push(await concurrencyStress(opts.concurrency));
-    prog("fault_injection");
-    results.push(await faultInjectionMatrix(opts.fault));
+
+    async function runVector(name, fn) {
+      prog(name);
+      var tVec = now();
+      try {
+        var out = await Promise.resolve(fn());
+        if (!out || !out.vector) {
+          out = {
+            vector: name,
+            failures: 1,
+            success_rate: 0,
+            elapsed_ms: now() - tVec,
+            failure_telemetry: [
+              {
+                index: 0,
+                input_payload: {},
+                exception: "vector_returned_empty",
+                error_code: "EmptyResult",
+                state_boundary: {}
+              }
+            ]
+          };
+        }
+        results.push(out);
+        prog(name + "_done", out);
+        return out;
+      } catch (e) {
+        var fail = {
+          vector: name,
+          failures: 1,
+          success_rate: 0,
+          elapsed_ms: now() - tVec,
+          exception: stackFromError(e),
+          failure_telemetry: [
+            {
+              index: 0,
+              input_payload: { vector: name },
+              exception: stackFromError(e),
+              error_code: e && e.name ? e.name : "VectorError",
+              state_boundary: { stage: name }
+            }
+          ]
+        };
+        results.push(fail);
+        prog(name + "_error", fail);
+        return fail;
+      }
+    }
+
+    // Explicit sequential iteration — never halt after monte_carlo_fuzz
+    await runVector("monte_carlo_fuzz", function () {
+      return runMonteCarlo(opts.monteCarlo);
+    });
+    await runVector("complexity_profiling", function () {
+      return profileComplexity(opts.complexity);
+    });
+    await runVector("memory_exhaustion", function () {
+      return memoryExhaustion(opts.memory);
+    });
+    await runVector("fault_injection", function () {
+      return faultInjectionMatrix(opts.fault);
+    });
+
     var heapAfter = sampleHeap();
     var cycle = {
       results: results,
+      vector_count: results.length,
+      vectors_complete: results.map(function (r) {
+        return r.vector;
+      }),
       total_elapsed_ms: now() - t0,
       viewport: opts.viewport || null,
       heap_cycle: {
@@ -573,7 +733,11 @@
         delta_bytes:
           heapBefore.supported && heapAfter.supported
             ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-            : null
+            : null,
+        polyfill: {
+          allocated: HeapTracker.allocated,
+          peak: HeapTracker.peak
+        }
       }
     };
     var report = synthesizeReport(cycle);
@@ -663,6 +827,13 @@
         lines.push("### Complexity series");
         lines.push("```json");
         lines.push(JSON.stringify(r.series, null, 2));
+        lines.push("```");
+      }
+      if (r.network_rtt) {
+        lines.push("");
+        lines.push("### Network RTT (real fetch samples)");
+        lines.push("```json");
+        lines.push(JSON.stringify(r.network_rtt, null, 2));
         lines.push("```");
       }
       if (r.probes) {
