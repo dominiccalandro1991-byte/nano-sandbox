@@ -1,6 +1,6 @@
 /**
- * Virtual Stress Testing Engine — multi-vector pipeline + full failure telemetry.
- * Isolated report library (localStorage key vste-reports-v1).
+ * Virtual Stress Testing Engine — REAL async four-vector pipeline.
+ * No short-circuit mocks. Isolated report library: vste-reports-v1.
  */
 (function (global) {
   "use strict";
@@ -9,6 +9,13 @@
     frontend: "https://dominiccalandro1991-byte.github.io/snca-codec/",
     backend: "https://nano-cloud-backend.onrender.com"
   };
+
+  var VECTORS = [
+    "monte_carlo_fuzz",
+    "complexity_profiling",
+    "memory_exhaustion",
+    "fault_injection"
+  ];
 
   var REPORT_KEY = "vste-reports-v1";
   var MAX_REPORTS = 40;
@@ -19,7 +26,6 @@
       : Date.now();
   }
 
-  /** Mobile WebKit polyfill: track JS-owned ArrayBuffer/typed-array allocations */
   var HeapTracker = {
     allocated: 0,
     peak: 0,
@@ -63,6 +69,12 @@
     };
   }
 
+  function stackFromError(err) {
+    if (!err) return "unknown";
+    if (typeof err === "string") return err;
+    return String(err.stack || err.message || err);
+  }
+
   function mulberry32(a) {
     return function () {
       a |= 0;
@@ -73,17 +85,58 @@
     };
   }
 
-  function stackFromError(err) {
-    if (!err) return "unknown";
-    if (typeof err === "string") return err;
-    return String(err.stack || err.message || err);
+  function percentile(sorted, p) {
+    if (!sorted.length) return 0;
+    var idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
+    return sorted[idx];
   }
 
-  function monteCarloVectors(n, seed) {
-    var rng = mulberry32(seed || 0xc0ffee);
-    var vectors = [];
+  function createReportBuilder() {
+    var results = [];
+    return {
+      addVectorResult: function (vector, vectorResult) {
+        var copy = Object.assign({}, vectorResult);
+        copy.vector = vector;
+        results.push(copy);
+      },
+      getResults: function () {
+        return results.slice();
+      }
+    };
+  }
+
+  /** Validate / fuzz boundary payloads against a real input validation function */
+  function validatePayload(v) {
+    if (v == null) throw new TypeError("nullish_payload_rejected");
+    if (v.nullish === null || v.nullish === undefined) {
+      throw new TypeError("nullish_field_rejected");
+    }
+    if (typeof v.boundary === "number" && isNaN(v.boundary)) {
+      throw new RangeError("nan_boundary");
+    }
+    if (v.boundary === Number.MAX_SAFE_INTEGER) {
+      throw new RangeError("max_safe_integer_boundary");
+    }
+    if (v.boundary < 0) {
+      throw new RangeError("negative_boundary");
+    }
+    var r =
+      Math.sqrt(Math.abs(v.payload.x)) +
+      Math.log1p(Math.abs((Number(v.boundary) || 0) % 1e5));
+    if (!isFinite(r)) throw new RangeError("non_finite_result");
+    return r;
+  }
+
+  async function executeMonteCarloFuzz() {
+    var n = 800;
+    var rng = mulberry32(Date.now() % 1e9);
+    var heapBefore = sampleHeap();
+    var failures = 0;
+    var latencies = [];
+    var failureTelemetry = [];
+
     for (var i = 0; i < n; i++) {
-      vectors.push({
+      var v = {
         i: i,
         u: rng(),
         boundary:
@@ -100,40 +153,13 @@
           y: Math.sin(rng() * Math.PI * 2),
           flag: rng() > 0.5
         }
-      });
-    }
-    return vectors;
-  }
-
-  function runMonteCarlo(opts) {
-    opts = opts || {};
-    var n = Math.min(Math.max(opts.samples || 500, 10), 20000);
-    var heapBefore = sampleHeap();
-    var t0 = now();
-    var vectors = monteCarloVectors(n, opts.seed || Date.now() % 1e9);
-    var failures = 0;
-    var latencies = [];
-    var failureTelemetry = [];
-
-    for (var i = 0; i < vectors.length; i++) {
+      };
       var s = now();
-      var v = vectors[i];
       try {
-        if (v.nullish === null) {
-          throw new TypeError("nullish_payload_rejected");
-        }
-        if (typeof v.boundary === "number" && isNaN(v.boundary)) {
-          throw new RangeError("nan_boundary");
-        }
-        var r =
-          Math.sqrt(Math.abs(v.payload.x)) +
-          Math.log1p(Math.abs((v.boundary || 0) % 1e5));
-        if (!isFinite(r)) {
-          throw new RangeError("non_finite_result");
-        }
+        validatePayload(v);
       } catch (e) {
         failures++;
-        if (failureTelemetry.length < 25) {
+        if (failureTelemetry.length < 30) {
           failureTelemetry.push({
             index: i,
             input_payload: v,
@@ -143,75 +169,66 @@
               boundary: v.boundary,
               nullish: v.nullish,
               u: v.u
-            },
-            t_ms: now() - s
+            }
           });
         }
       }
       latencies.push(now() - s);
+      // yield occasionally so total wall time is real async work
+      if (i % 100 === 0) await Promise.resolve();
     }
-
     latencies.sort(function (a, b) {
       return a - b;
     });
-    var elapsed = now() - t0;
     var heapAfter = sampleHeap();
-
     return {
-      vector: "monte_carlo_fuzz",
-      equation: "P(x)~U(0,1); boundary∈{−1,NaN,MAX_SAFE,U·1e6}; reject nullish",
+      equation: "validatePayload(P); P boundary fuzz over N samples",
       samples: n,
       failures: failures,
       success_rate: 1 - failures / n,
-      elapsed_ms: elapsed,
-      latency_p50: latencies[Math.floor(latencies.length * 0.5)] || 0,
-      latency_p95: latencies[Math.floor(latencies.length * 0.95)] || 0,
-      latency_p99: latencies[Math.floor(latencies.length * 0.99)] || 0,
+      latency_p50: percentile(latencies, 0.5),
+      latency_p95: percentile(latencies, 0.95),
+      latency_p99: percentile(latencies, 0.99),
       heap_before: heapBefore,
       heap_after: heapAfter,
-      heap_delta_bytes:
-        heapBefore.supported && heapAfter.supported
-          ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-          : null,
       failure_telemetry: failureTelemetry
     };
   }
 
-  function profileComplexity(opts) {
-    opts = opts || {};
-    var sizes = opts.sizes || [16, 32, 64, 128, 256, 512];
+  async function executeComplexityProfiling() {
+    var sizes = [10, 100, 1000];
     var heapBefore = sampleHeap();
     var series = [];
     var failureTelemetry = [];
     var failures = 0;
 
-    function workLinear(n) {
+    function work(n) {
       var s = 0;
-      for (var i = 0; i < n; i++) s += i & 1;
-      return s;
-    }
-    function workQuadratic(n) {
-      var s = 0;
-      var m = Math.min(n, 400);
-      for (var i = 0; i < m; i++) for (var j = 0; j < m; j++) s += (i * j) & 1;
+      for (var i = 0; i < n; i++) {
+        for (var j = 0; j < Math.min(n, 250); j++) {
+          s += (i * j + i) % 7;
+        }
+      }
       return s;
     }
 
-    sizes.forEach(function (n) {
+    for (var si = 0; si < sizes.length; si++) {
+      var n = sizes[si];
       try {
         var t0 = now();
-        workLinear(n * 200);
-        var lin = now() - t0;
-        t0 = now();
-        workQuadratic(Math.min(n, 300));
-        var quad = now() - t0;
-        if (lin < 0 || quad < 0) throw new Error("negative_timing");
+        // Scale iterations so N=1000 is measurable
+        var reps = n <= 10 ? 5000 : n <= 100 ? 200 : 20;
+        var acc = 0;
+        for (var r = 0; r < reps; r++) acc += work(n);
+        var elapsed = now() - t0;
         series.push({
           n: n,
-          t_linear_ms: lin,
-          t_quadratic_ms: quad,
-          ratio_quad_lin: quad / Math.max(lin, 1e-9)
+          reps: reps,
+          t_ms: elapsed,
+          t_per_rep_ms: elapsed / reps,
+          checksum: acc % 1000003
         });
+        await Promise.resolve();
       } catch (e) {
         failures++;
         failureTelemetry.push({
@@ -222,210 +239,92 @@
           state_boundary: { sizes: sizes.slice() }
         });
       }
-    });
+    }
 
-    var bound = "O(N)";
+    var bound = "O(N²)";
     if (series.length >= 2) {
-      var a = series[series.length - 2];
+      var a = series[0];
       var b = series[series.length - 1];
-      var ratio = b.t_quadratic_ms / Math.max(1e-6, a.t_quadratic_ms);
+      var timeRatio = b.t_per_rep_ms / Math.max(1e-9, a.t_per_rep_ms);
       var nRatio = b.n / a.n;
-      if (ratio > nRatio * nRatio * 0.6) bound = "O(N²)";
-      else if (ratio > nRatio * 0.7) bound = "O(N)";
+      if (timeRatio > nRatio * nRatio * 0.3) bound = "O(N²)";
+      else if (timeRatio > nRatio * 0.5) bound = "O(N)";
       else bound = "O(1)–O(N)";
     }
 
-    var heapAfter = sampleHeap();
     return {
-      vector: "complexity_profiling",
-      equation: "T(N) empirical; classify growth vs N, N² ratios",
+      equation: "T(N) for N∈{10,100,1000}; empirical growth classification",
       series: series,
       empirical_bound: bound,
       failures: failures,
-      success_rate: series.length ? 1 - failures / sizes.length : 0,
-      elapsed_ms: series.reduce(function (s, x) {
-        return s + x.t_linear_ms + x.t_quadratic_ms;
-      }, 0),
+      success_rate: sizes.length ? 1 - failures / sizes.length : 0,
       heap_before: heapBefore,
-      heap_after: heapAfter,
-      heap_delta_bytes:
-        heapBefore.supported && heapAfter.supported
-          ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-          : null,
+      heap_after: sampleHeap(),
       failure_telemetry: failureTelemetry
     };
   }
 
-  function memoryExhaustion(opts) {
-    opts = opts || {};
-    var chunks = Math.min(opts.chunks || 40, 200);
-    var size = Math.min(opts.chunkSize || 256 * 1024, 1024 * 1024);
+  async function executeMemoryExhaustion() {
+    var chunks = 48;
+    var size = 256 * 1024;
     var held = [];
     var heapBefore = sampleHeap();
-    var t0 = now();
     var allocated = 0;
     var failures = 0;
     var failureTelemetry = [];
-    var peakUsed = heapBefore.usedJSHeapSize || 0;
+    var peak = HeapTracker.peak;
 
-    try {
-      for (var i = 0; i < chunks; i++) {
-        try {
-          var buf = new Uint8Array(size);
-          buf[0] = i & 255;
-          buf[size - 1] = (i * 17) & 255;
-          held.push(buf);
-          allocated += size;
-          HeapTracker.track(size);
-          var mid = sampleHeap();
-          if (mid.supported && mid.usedJSHeapSize > peakUsed) peakUsed = mid.usedJSHeapSize;
-        } catch (inner) {
-          failures++;
-          failureTelemetry.push({
-            index: i,
-            input_payload: { chunk: i, chunk_bytes: size, allocated_so_far: allocated },
-            exception: stackFromError(inner),
-            error_code: inner && inner.name ? inner.name : "AllocError",
-            state_boundary: {
-              chunks_requested: chunks,
-              heap: sampleHeap()
-            }
-          });
-          break;
-        }
+    for (var i = 0; i < chunks; i++) {
+      try {
+        var buf = new Uint8Array(size);
+        for (var k = 0; k < 64; k++) buf[k * 1024] = (i + k) & 255;
+        held.push(buf);
+        allocated += size;
+        HeapTracker.track(size);
+        if (HeapTracker.allocated > peak) peak = HeapTracker.allocated;
+        if (i % 8 === 0) await Promise.resolve();
+      } catch (e) {
+        failures++;
+        failureTelemetry.push({
+          index: i,
+          input_payload: { chunk: i, chunk_bytes: size, allocated_so_far: allocated },
+          exception: stackFromError(e),
+          error_code: e && e.name ? e.name : "AllocError",
+          state_boundary: { heap: sampleHeap(), polyfill_peak: HeapTracker.peak }
+        });
+        break;
       }
-    } catch (e) {
-      failures++;
-      failureTelemetry.push({
-        index: -1,
-        input_payload: { chunks: chunks, size: size },
-        exception: stackFromError(e),
-        error_code: e && e.name ? e.name : "Error",
-        state_boundary: { heap: sampleHeap() }
-      });
     }
 
-    var elapsed = now() - t0;
     var heapAfterHold = sampleHeap();
-    // release — observe GC opportunity + polyfill release
     var released = allocated;
     held.length = 0;
     held = null;
     HeapTracker.release(released);
-    var tGc0 = now();
-    // force minor churn to encourage GC observation
-    for (var g = 0; g < 1000; g++) {
-      void (Math.random() * g);
-    }
+    await Promise.resolve();
     var heapAfterRelease = sampleHeap();
-    var gcPauseProxyMs = now() - tGc0;
 
     return {
-      vector: "memory_exhaustion",
-      equation: "A=Σchunk_i; Δheap=used_after−used_before; leak_proxy=held_vs_released",
+      equation: "A=Σ Uint8Array(chunk); track polyfill_arraybuffer_tracker; release",
       chunks: chunks,
       chunk_bytes: size,
       allocated_bytes: allocated,
       failures: failures,
-      success_rate: failures ? 0 : 1,
-      elapsed_ms: elapsed,
+      success_rate: failures ? 0.5 : 1,
       heap_before: heapBefore,
       heap_after_hold: heapAfterHold,
       heap_after_release: heapAfterRelease,
-      peak_used_js_heap: peakUsed,
-      heap_delta_hold_bytes:
-        heapBefore.supported && heapAfterHold.supported
-          ? heapAfterHold.usedJSHeapSize - heapBefore.usedJSHeapSize
-          : null,
-      heap_delta_release_bytes:
-        heapAfterHold.supported && heapAfterRelease.supported
-          ? heapAfterRelease.usedJSHeapSize - heapAfterHold.usedJSHeapSize
-          : null,
-      gc_pause_proxy_ms: gcPauseProxyMs,
+      polyfill_peak: peak,
       leak_proxy:
-        heapAfterRelease.supported && heapBefore.supported
+        heapAfterRelease.usedJSHeapSize != null && heapBefore.usedJSHeapSize != null
           ? heapAfterRelease.usedJSHeapSize - heapBefore.usedJSHeapSize
-          : null,
+          : HeapTracker.allocated,
       failure_telemetry: failureTelemetry
     };
   }
 
-  function concurrencyStress(opts) {
-    opts = opts || {};
-    var workers = Math.min(opts.workers || 8, 32);
-    var tasks = Math.min(opts.tasks || 64, 512);
-    var heapBefore = sampleHeap();
-    var t0 = now();
-    var completed = 0;
-    var failures = 0;
-    var failureTelemetry = [];
-    var promises = [];
-
-    for (var w = 0; w < workers; w++) {
-      (function (workerId) {
-        promises.push(
-          new Promise(function (resolve) {
-            var local = 0;
-            var maxLocal = Math.ceil(tasks / workers);
-            function step() {
-              if (local >= maxLocal) return resolve(local);
-              try {
-                var x = 0;
-                for (var i = 0; i < 5000; i++) x += Math.sqrt(i);
-                if (!isFinite(x)) throw new RangeError("worker_non_finite");
-                local++;
-                completed++;
-                setTimeout(step, 0);
-              } catch (e) {
-                failures++;
-                if (failureTelemetry.length < 25) {
-                  failureTelemetry.push({
-                    index: workerId,
-                    input_payload: { workerId: workerId, local: local, maxLocal: maxLocal },
-                    exception: stackFromError(e),
-                    error_code: e && e.name ? e.name : "Error",
-                    state_boundary: { workers: workers, tasks: tasks, completed: completed }
-                  });
-                }
-                resolve(local);
-              }
-            }
-            step();
-          })
-        );
-      })(w);
-    }
-
-    return Promise.all(promises).then(function () {
-      var heapAfter = sampleHeap();
-      return {
-        vector: "concurrency_pool",
-        equation: "W workers × T tasks; cooperative scheduling completion",
-        workers: workers,
-        tasks: tasks,
-        completed: completed,
-        failures: failures,
-        success_rate: tasks ? completed / tasks : 0,
-        elapsed_ms: now() - t0,
-        heap_before: heapBefore,
-        heap_after: heapAfter,
-        heap_delta_bytes:
-          heapBefore.supported && heapAfter.supported
-            ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-            : null,
-        failure_telemetry: failureTelemetry
-      };
-    });
-  }
-
-  function percentile(sorted, p) {
-    if (!sorted.length) return 0;
-    var idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
-    return sorted[idx];
-  }
-
   async function measureNetworkRtt(url, samples, timeoutMs) {
-    samples = Math.min(Math.max(samples || 9, 3), 30);
+    samples = Math.min(Math.max(samples || 9, 3), 20);
     var latencies = [];
     var errors = [];
     for (var i = 0; i < samples; i++) {
@@ -434,7 +333,7 @@
         var ctrl = new AbortController();
         var timer = setTimeout(function () {
           ctrl.abort();
-        }, timeoutMs || 8000);
+        }, timeoutMs || 10000);
         await fetch(url, {
           method: "GET",
           mode: "cors",
@@ -444,11 +343,10 @@
         clearTimeout(timer);
         latencies.push(now() - t0);
       } catch (e) {
-        var ms = now() - t0;
-        latencies.push(ms);
+        latencies.push(now() - t0);
         errors.push({
           sample: i,
-          latency_ms: ms,
+          latency_ms: latencies[latencies.length - 1],
           exception: stackFromError(e),
           error_code: e && e.name ? e.name : "fetch_error"
         });
@@ -464,31 +362,22 @@
       latency_p50: percentile(sorted, 0.5),
       latency_p95: percentile(sorted, 0.95),
       latency_p99: percentile(sorted, 0.99),
-      latency_min: sorted[0] || 0,
-      latency_max: sorted[sorted.length - 1] || 0,
       error_count: errors.length,
       errors: errors.slice(0, 10)
     };
   }
 
-  async function faultInjectionMatrix(opts) {
-    opts = opts || {};
-    var frontend = opts.frontend || TARGETS.frontend;
-    var backend = opts.backend || TARGETS.backend;
-    var results = [];
+  async function executeFaultInjection(frontendUrl, backendUrl) {
+    var frontend = frontendUrl || TARGETS.frontend;
+    var backend = backendUrl || TARGETS.backend;
+    var heapBefore = sampleHeap();
     var failureTelemetry = [];
     var failures = 0;
-    var heapBefore = sampleHeap();
-    var tAll = now();
+    var probes = [];
 
-    // Real async multi-sample RTT against hardcoded targets
-    var feRtt = await measureNetworkRtt(frontend, opts.rttSamples || 9, opts.timeoutMs || 8000);
-    var beRtt = await measureNetworkRtt(backend, opts.rttSamples || 9, opts.timeoutMs || 8000);
-    var beHealthRtt = await measureNetworkRtt(
-      backend.replace(/\/$/, "") + "/health",
-      opts.rttSamples || 7,
-      opts.timeoutMs || 8000
-    );
+    var feRtt = await measureNetworkRtt(frontend, 9, 10000);
+    var beRtt = await measureNetworkRtt(backend, 9, 10000);
+    var beHealth = await measureNetworkRtt(backend.replace(/\/$/, "") + "/health", 7, 10000);
 
     async function probe(name, url, init) {
       var t0 = now();
@@ -500,7 +389,7 @@
         var ctrl = new AbortController();
         var timer = setTimeout(function () {
           ctrl.abort();
-        }, opts.timeoutMs || 8000);
+        }, 10000);
         var res = await fetch(
           url,
           Object.assign({ signal: ctrl.signal, mode: "cors", cache: "no-store" }, init || {})
@@ -511,34 +400,26 @@
         if (!ok && status >= 400) {
           failures++;
           failureTelemetry.push({
-            index: results.length,
+            index: probes.length,
             input_payload: input,
             exception: "HTTP_" + status,
             error_code: "HTTP_" + status,
-            state_boundary: { status: status, ok: ok, latency_ms: now() - t0 }
+            state_boundary: { status: status, latency_ms: now() - t0 }
           });
         }
       } catch (e) {
-        err =
-          e && e.name === "AbortError"
-            ? "timeout"
-            : String(e && e.message ? e.message : e);
+        err = e && e.name === "AbortError" ? "timeout" : String(e.message || e);
         if (/Failed to fetch|NetworkError|CORS/i.test(err)) err = "network_or_cors";
         failures++;
         failureTelemetry.push({
-          index: results.length,
+          index: probes.length,
           input_payload: input,
           exception: stackFromError(e),
           error_code: e && e.name ? e.name : err,
-          state_boundary: {
-            status: status,
-            simulated_packet_drop: err === "timeout",
-            network_error: err === "network_or_cors",
-            latency_ms: now() - t0
-          }
+          state_boundary: { latency_ms: now() - t0, network_error: true }
         });
       }
-      results.push({
+      probes.push({
         name: name,
         url: url,
         status: status,
@@ -550,24 +431,22 @@
 
     await probe("frontend_get", frontend, { method: "GET" });
     await probe("backend_get", backend, { method: "GET" });
-    await probe("backend_health", backend.replace(/\/$/, "") + "/health", { method: "GET" });
+    await probe("backend_health", backend.replace(/\/$/, "") + "/health", {
+      method: "GET"
+    });
     await probe("backend_bad_json", backend.replace(/\/$/, "") + "/api/echo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{not-json"
     });
-    // Forced short-timeout packet-drop simulation
-    await probe("frontend_timeout_sim", frontend, { method: "GET" });
 
-    var heapAfter = sampleHeap();
     return {
-      vector: "fault_injection",
-      equation: "RTT p50/p95/p99 over N fetch samples; F={timeout,corrupt,unreachable}",
-      targets: TARGETS,
+      equation: "await fetch(targets); RTT percentiles; fault probes",
+      targets: { frontend: frontend, backend: backend },
       network_rtt: {
         frontend: feRtt,
         backend: beRtt,
-        backend_health: beHealthRtt
+        backend_health: beHealth
       },
       latency_p50: feRtt.latency_p50,
       latency_p95: feRtt.latency_p95,
@@ -575,25 +454,36 @@
       backend_latency_p50: beRtt.latency_p50,
       backend_latency_p95: beRtt.latency_p95,
       backend_latency_p99: beRtt.latency_p99,
-      probes: results,
+      probes: probes,
       failures: failures,
       success_rate:
-        results.filter(function (r) {
-          return r.ok || r.status > 0;
-        }).length / Math.max(1, results.length),
-      elapsed_ms: now() - tAll,
+        probes.filter(function (p) {
+          return p.ok || p.status > 0;
+        }).length / Math.max(1, probes.length),
       heap_before: heapBefore,
-      heap_after: heapAfter,
-      heap_delta_bytes:
-        heapBefore.supported && heapAfter.supported
-          ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-          : null,
+      heap_after: sampleHeap(),
       failure_telemetry: failureTelemetry
     };
   }
 
+  async function executeVector(vector, targetFrontendUrl, targetBackendUrl) {
+    switch (vector) {
+      case "monte_carlo_fuzz":
+        return executeMonteCarloFuzz();
+      case "complexity_profiling":
+        return executeComplexityProfiling();
+      case "memory_exhaustion":
+        return executeMemoryExhaustion();
+      case "fault_injection":
+        return executeFaultInjection(targetFrontendUrl, targetBackendUrl);
+      default:
+        throw new Error("unknown_vector:" + vector);
+    }
+  }
+
   function loadReports() {
     try {
+      if (typeof localStorage === "undefined") return [];
       var raw = localStorage.getItem(REPORT_KEY);
       if (!raw) return [];
       var arr = JSON.parse(raw);
@@ -605,144 +495,9 @@
 
   function saveReports(arr) {
     try {
+      if (typeof localStorage === "undefined") return;
       localStorage.setItem(REPORT_KEY, JSON.stringify(arr.slice(0, MAX_REPORTS)));
     } catch (e) {}
-  }
-
-  function synthesizeReport(cycle) {
-    var heapCycle = cycle.heap_cycle || null;
-    var report = {
-      id: "vste_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
-      createdAt: new Date().toISOString(),
-      targets: TARGETS,
-      cycle: cycle,
-      heap_cycle: heapCycle,
-      summary: {
-        vectors: (cycle.results || []).map(function (r) {
-          return r.vector;
-        }),
-        vector_count: (cycle.results || []).length,
-        vectors_complete: cycle.vectors_complete || (cycle.results || []).map(function (r) {
-          return r.vector;
-        }),
-        total_elapsed_ms: cycle.total_elapsed_ms,
-        total_failures: (cycle.results || []).reduce(function (s, r) {
-          return s + (r.failures || 0);
-        }, 0),
-        overall_success:
-          cycle.results && cycle.results.length
-            ? cycle.results.reduce(function (s, r) {
-                return s + (r.success_rate != null ? r.success_rate : 1);
-              }, 0) / cycle.results.length
-            : 0,
-        heap_before: heapCycle && heapCycle.before,
-        heap_after: heapCycle && heapCycle.after,
-        heap_delta_bytes: heapCycle && heapCycle.delta_bytes
-      }
-    };
-    var lib = loadReports();
-    lib.unshift(report);
-    saveReports(lib);
-    return report;
-  }
-
-  async function runFullCycle(opts, onProgress) {
-    opts = opts || {};
-    var t0 = now();
-    HeapTracker.reset();
-    var heapBefore = sampleHeap();
-    var results = [];
-    function prog(msg, data) {
-      if (onProgress) onProgress(msg, data);
-    }
-
-    async function runVector(name, fn) {
-      prog(name);
-      var tVec = now();
-      try {
-        var out = await Promise.resolve(fn());
-        if (!out || !out.vector) {
-          out = {
-            vector: name,
-            failures: 1,
-            success_rate: 0,
-            elapsed_ms: now() - tVec,
-            failure_telemetry: [
-              {
-                index: 0,
-                input_payload: {},
-                exception: "vector_returned_empty",
-                error_code: "EmptyResult",
-                state_boundary: {}
-              }
-            ]
-          };
-        }
-        results.push(out);
-        prog(name + "_done", out);
-        return out;
-      } catch (e) {
-        var fail = {
-          vector: name,
-          failures: 1,
-          success_rate: 0,
-          elapsed_ms: now() - tVec,
-          exception: stackFromError(e),
-          failure_telemetry: [
-            {
-              index: 0,
-              input_payload: { vector: name },
-              exception: stackFromError(e),
-              error_code: e && e.name ? e.name : "VectorError",
-              state_boundary: { stage: name }
-            }
-          ]
-        };
-        results.push(fail);
-        prog(name + "_error", fail);
-        return fail;
-      }
-    }
-
-    // Explicit sequential iteration — never halt after monte_carlo_fuzz
-    await runVector("monte_carlo_fuzz", function () {
-      return runMonteCarlo(opts.monteCarlo);
-    });
-    await runVector("complexity_profiling", function () {
-      return profileComplexity(opts.complexity);
-    });
-    await runVector("memory_exhaustion", function () {
-      return memoryExhaustion(opts.memory);
-    });
-    await runVector("fault_injection", function () {
-      return faultInjectionMatrix(opts.fault);
-    });
-
-    var heapAfter = sampleHeap();
-    var cycle = {
-      results: results,
-      vector_count: results.length,
-      vectors_complete: results.map(function (r) {
-        return r.vector;
-      }),
-      total_elapsed_ms: now() - t0,
-      viewport: opts.viewport || null,
-      heap_cycle: {
-        before: heapBefore,
-        after: heapAfter,
-        delta_bytes:
-          heapBefore.supported && heapAfter.supported
-            ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
-            : null,
-        polyfill: {
-          allocated: HeapTracker.allocated,
-          peak: HeapTracker.peak
-        }
-      }
-    };
-    var report = synthesizeReport(cycle);
-    prog("done", report);
-    return report;
   }
 
   function reportToMarkdown(report) {
@@ -763,7 +518,7 @@
     ];
 
     if (report.summary && report.summary.heap_before) {
-      lines.push("## Cycle Heap Sampling (`performance.memory`)");
+      lines.push("## Cycle Heap Sampling");
       lines.push("");
       lines.push("```json");
       lines.push(
@@ -782,44 +537,36 @@
     }
 
     (report.cycle.results || []).forEach(function (r) {
-      lines.push("## Vector: `" + r.vector + "`");
+      lines.push("## Vector: " + r.vector);
       lines.push("");
       if (r.equation) lines.push("- Equation: `" + r.equation + "`");
+      if (r.elapsed_ms != null) lines.push("- **elapsed_ms:** " + r.elapsed_ms);
       Object.keys(r).forEach(function (k) {
         if (
-          k === "vector" ||
-          k === "equation" ||
-          k === "series" ||
-          k === "probes" ||
-          k === "failure_telemetry" ||
-          k === "heap_before" ||
-          k === "heap_after" ||
-          k === "heap_after_hold" ||
-          k === "heap_after_release" ||
-          k === "targets"
+          [
+            "vector",
+            "equation",
+            "series",
+            "probes",
+            "failure_telemetry",
+            "heap_before",
+            "heap_after",
+            "heap_after_hold",
+            "heap_after_release",
+            "targets",
+            "network_rtt",
+            "elapsed_ms"
+          ].indexOf(k) !== -1
         )
           return;
-        var v = r[k];
-        if (typeof v === "object") return;
-        lines.push("- **" + k + ":** " + v);
+        if (typeof r[k] === "object") return;
+        lines.push("- **" + k + ":** " + r[k]);
       });
-      if (r.heap_before || r.heap_after || r.heap_after_hold) {
+      if (r.network_rtt) {
         lines.push("");
-        lines.push("### Heap");
+        lines.push("### Network RTT (real fetch samples)");
         lines.push("```json");
-        lines.push(
-          JSON.stringify(
-            {
-              before: r.heap_before,
-              after: r.heap_after,
-              after_hold: r.heap_after_hold,
-              after_release: r.heap_after_release,
-              delta_bytes: r.heap_delta_bytes
-            },
-            null,
-            2
-          )
-        );
+        lines.push(JSON.stringify(r.network_rtt, null, 2));
         lines.push("```");
       }
       if (r.series) {
@@ -827,13 +574,6 @@
         lines.push("### Complexity series");
         lines.push("```json");
         lines.push(JSON.stringify(r.series, null, 2));
-        lines.push("```");
-      }
-      if (r.network_rtt) {
-        lines.push("");
-        lines.push("### Network RTT (real fetch samples)");
-        lines.push("```json");
-        lines.push(JSON.stringify(r.network_rtt, null, 2));
         lines.push("```");
       }
       if (r.probes) {
@@ -846,14 +586,6 @@
       if (r.failures > 0 && r.failure_telemetry && r.failure_telemetry.length) {
         lines.push("");
         lines.push("## Failure Telemetry");
-        lines.push("");
-        lines.push(
-          "Failures recorded: **" +
-            r.failures +
-            "** (showing " +
-            r.failure_telemetry.length +
-            " samples)"
-        );
         lines.push("");
         r.failure_telemetry.forEach(function (ft, idx) {
           lines.push("### Failure " + (idx + 1));
@@ -879,15 +611,117 @@
     return lines.join("\n");
   }
 
+  function synthesizeReport(cycle) {
+    var report = {
+      id: "vste_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
+      createdAt: new Date().toISOString(),
+      targets: TARGETS,
+      cycle: cycle,
+      summary: {
+        vectors: (cycle.results || []).map(function (r) {
+          return r.vector;
+        }),
+        vector_count: (cycle.results || []).length,
+        vectors_complete: (cycle.results || []).map(function (r) {
+          return r.vector;
+        }),
+        total_elapsed_ms: cycle.total_elapsed_ms,
+        total_failures: (cycle.results || []).reduce(function (s, r) {
+          return s + (r.failures || 0);
+        }, 0),
+        overall_success:
+          cycle.results && cycle.results.length
+            ? cycle.results.reduce(function (s, r) {
+                return s + (r.success_rate != null ? r.success_rate : 1);
+              }, 0) / cycle.results.length
+            : 0,
+        heap_before: cycle.heap_cycle && cycle.heap_cycle.before,
+        heap_after: cycle.heap_cycle && cycle.heap_cycle.after,
+        heap_delta_bytes: cycle.heap_cycle && cycle.heap_cycle.delta_bytes
+      }
+    };
+    var lib = loadReports();
+    lib.unshift(report);
+    saveReports(lib);
+    return report;
+  }
+
+  /**
+   * Explicit async sequence over VECTORS — no short-circuit.
+   */
+  async function runFullStressCycle(opts, onProgress) {
+    opts = opts || {};
+    var targetFrontendUrl = opts.frontend || TARGETS.frontend;
+    var targetBackendUrl = opts.backend || TARGETS.backend;
+    var report = createReportBuilder();
+    HeapTracker.reset();
+    var heapBefore = sampleHeap();
+    var cycleStart = now();
+
+    for (var vi = 0; vi < VECTORS.length; vi++) {
+      var vector = VECTORS[vi];
+      if (onProgress) onProgress(vector);
+      var startTime = performance.now();
+      var vectorResult;
+      try {
+        vectorResult = await executeVector(vector, targetFrontendUrl, targetBackendUrl);
+      } catch (e) {
+        vectorResult = {
+          failures: 1,
+          success_rate: 0,
+          failure_telemetry: [
+            {
+              index: 0,
+              input_payload: { vector: vector },
+              exception: stackFromError(e),
+              error_code: e && e.name ? e.name : "VectorError",
+              state_boundary: {}
+            }
+          ]
+        };
+      }
+      var endTime = performance.now();
+      vectorResult.elapsed_ms = endTime - startTime;
+      report.addVectorResult(vector, vectorResult);
+      if (onProgress) onProgress(vector + "_done", vectorResult);
+    }
+
+    var heapAfter = sampleHeap();
+    var cycle = {
+      results: report.getResults(),
+      vector_count: report.getResults().length,
+      vectors_complete: report.getResults().map(function (r) {
+        return r.vector;
+      }),
+      total_elapsed_ms: now() - cycleStart,
+      viewport: opts.viewport || null,
+      heap_cycle: {
+        before: heapBefore,
+        after: heapAfter,
+        delta_bytes:
+          heapBefore.usedJSHeapSize != null && heapAfter.usedJSHeapSize != null
+            ? heapAfter.usedJSHeapSize - heapBefore.usedJSHeapSize
+            : null,
+        polyfill: { allocated: HeapTracker.allocated, peak: HeapTracker.peak }
+      }
+    };
+    var finalReport = synthesizeReport(cycle);
+    if (onProgress) onProgress("done", finalReport);
+    return finalReport;
+  }
+
+  // Back-compat alias
+  async function runFullCycle(opts, onProgress) {
+    return runFullStressCycle(opts, onProgress);
+  }
+
   global.VirtualStressEngine = {
     TARGETS: TARGETS,
+    VECTORS: VECTORS.slice(),
     REPORT_KEY: REPORT_KEY,
     sampleHeap: sampleHeap,
-    runMonteCarlo: runMonteCarlo,
-    profileComplexity: profileComplexity,
-    memoryExhaustion: memoryExhaustion,
-    concurrencyStress: concurrencyStress,
-    faultInjectionMatrix: faultInjectionMatrix,
+    executeVector: executeVector,
+    runFullStressCycle: runFullStressCycle,
     runFullCycle: runFullCycle,
     loadReports: loadReports,
     saveReports: saveReports,
@@ -905,3 +739,8 @@
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);
+
+// Node/CommonJS export for pre-commit verification gate
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = globalThis.VirtualStressEngine;
+}

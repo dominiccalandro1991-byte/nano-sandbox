@@ -441,7 +441,7 @@
       try {
         var report;
         if (kind === "full") {
-          report = await eng.runFullCycle({ viewport: viewport }, function (stage) {
+          report = await eng.runFullStressCycle({ viewport: viewport }, function (stage) {
             setLive("Running… stage: " + stage);
           });
         } else if (kind === "mc") {
