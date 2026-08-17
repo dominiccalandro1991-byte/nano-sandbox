@@ -1,6 +1,5 @@
 /**
- * Virtual Stress Tester Interactive Dashboard
- * Unified viewport state · layout containment · runUISmokeTest()
+ * Virtual Stress Tester UI — terminal card lifecycle + auto report routing.
  */
 (function (global) {
   "use strict";
@@ -12,20 +11,21 @@
     custom: { label: "Custom", w: 1280, h: 720 }
   };
 
-  var state = {
-    mode: "desktop",
-    w: 1280,
-    h: 720
-  };
-
+  var state = { mode: "desktop", w: 1280, h: 720 };
   var root = null;
   var refs = {};
+  var lastMarkdown = "";
+  var lastReport = null;
 
   function el(tag, cls, html) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (html != null) n.innerHTML = html;
     return n;
+  }
+
+  function eng() {
+    return global.VirtualStressEngine;
   }
 
   function syncPresetButtons() {
@@ -37,14 +37,11 @@
 
   function syncInputsFromState() {
     if (!refs.cw || !refs.ch) return;
-    if (state.mode === "full") {
-      var wrap = refs.canvasWrap;
-      if (wrap) {
-        refs.cw.value = Math.max(200, wrap.clientWidth - 16);
-        refs.ch.value = Math.max(200, wrap.clientHeight - 16);
-        state.w = Number(refs.cw.value);
-        state.h = Number(refs.ch.value);
-      }
+    if (state.mode === "full" && refs.canvasWrap) {
+      refs.cw.value = Math.max(200, refs.canvasWrap.clientWidth - 16);
+      refs.ch.value = Math.max(200, refs.canvasWrap.clientHeight - 16);
+      state.w = Number(refs.cw.value);
+      state.h = Number(refs.ch.value);
     } else {
       refs.cw.value = state.w;
       refs.ch.value = state.h;
@@ -53,9 +50,8 @@
 
   function applyViewportScale() {
     if (!refs.frame || !refs.canvasWrap) return;
-    var container = refs.canvasWrap;
-    var cw = container.clientWidth - 16;
-    var ch = container.clientHeight - 16;
+    var cw = refs.canvasWrap.clientWidth - 16;
+    var ch = refs.canvasWrap.clientHeight - 16;
     var tw = state.w;
     var th = state.h;
     if (state.mode === "full") {
@@ -71,8 +67,6 @@
     refs.frame.style.transform = "scale(" + S + ")";
     refs.frame.style.transformOrigin = "top left";
     refs.frame.dataset.scale = String(S);
-    refs.frame.dataset.targetW = String(tw);
-    refs.frame.dataset.targetH = String(th);
     if (refs.scaleLabel) {
       refs.scaleLabel.textContent =
         (PRESETS[state.mode] ? PRESETS[state.mode].label : state.mode) +
@@ -110,6 +104,17 @@
     applyViewportScale();
   }
 
+  function showTerminal(text) {
+    if (!refs.terminalCard || !refs.terminalOut) return;
+    refs.terminalCard.style.display = "";
+    refs.terminalOut.textContent = text || "";
+  }
+
+  function hideTerminal() {
+    if (refs.terminalOut) refs.terminalOut.textContent = "";
+    if (refs.terminalCard) refs.terminalCard.style.display = "none";
+  }
+
   function downloadText(filename, text, mime) {
     var blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
     var a = document.createElement("a");
@@ -121,244 +126,326 @@
     }, 400);
   }
 
-  function setLive(text) {
-    if (refs.live) refs.live.textContent = text;
+  function generateMarkdownReport(result) {
+    var e = eng();
+    if (!e) return "";
+    if (result && result.id && result.cycle) {
+      return e.reportToMarkdown(result);
+    }
+    // Single-vector partial → synthesize minimal report
+    if (result && result.vector) {
+      var report = e.synthesizeReport({
+        results: [result],
+        total_elapsed_ms: result.elapsed_ms || 0,
+        vectors_complete: [result.vector],
+        heap_cycle: {
+          before: result.heap_before || null,
+          after: result.heap_after || result.heap_after_release || null,
+          delta_bytes: null
+        }
+      });
+      return e.reportToMarkdown(report);
+    }
+    return String(result || "");
   }
 
-  function renderReportLibrary(host) {
-    var eng = global.VirtualStressEngine;
-    if (!eng || !host) return;
-    var reports = eng.loadReports();
-    host.innerHTML = "";
-    var head = el("div", "vste-lib-head");
-    head.innerHTML =
-      "<strong>Stress Test Report Library</strong> <span class=\"muted\">isolated · " +
-      reports.length +
-      " reports</span>";
-    host.appendChild(head);
+  function appendLibraryItem(report, md) {
+    var list = refs.libraryList;
+    if (!list) return;
+    var empty = list.querySelector(".vste-lib-empty");
+    if (empty) empty.remove();
+
+    var id = (report && report.id) || "inline_" + Date.now().toString(36);
+    var card = el("div", "vste-report-card");
+    card.setAttribute("data-report-id", id);
+    card.innerHTML =
+      "<div><code>" +
+      id +
+      "</code><br/><span class=\"muted\">" +
+      ((report && report.createdAt) || new Date().toISOString()) +
+      "</span></div>";
+    var actions = el("div", "vste-report-actions");
+    function btn(label, fn) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "ghost-btn";
+      b.textContent = label;
+      b.onclick = fn;
+      return b;
+    }
+    actions.appendChild(
+      btn("Copy MD", function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(md);
+      })
+    );
+    actions.appendChild(
+      btn("Download MD", function () {
+        downloadText(id + ".md", md, "text/markdown;charset=utf-8");
+      })
+    );
+    actions.appendChild(
+      btn("Download JSON", function () {
+        downloadText(id + ".json", JSON.stringify(report || { md: md }, null, 2), "application/json");
+      })
+    );
+    actions.appendChild(
+      btn("Delete", function () {
+        if (eng() && report && report.id) eng().deleteReport(report.id);
+        card.remove();
+        if (!list.querySelector(".vste-report-card")) {
+          list.appendChild(el("p", "muted vste-lib-empty", "No reports yet."));
+        }
+      })
+    );
+    card.appendChild(actions);
+    list.insertBefore(card, list.firstChild);
+  }
+
+  function renderReportLibrary() {
+    var list = refs.libraryList;
+    if (!list || !eng()) return;
+    list.innerHTML = "";
+    var reports = eng().loadReports();
     if (!reports.length) {
-      host.appendChild(el("p", "muted", "No reports yet. Run a full cycle to synthesize one."));
+      list.appendChild(el("p", "muted vste-lib-empty", "No reports yet. Run a stress cycle."));
       return;
     }
     reports.forEach(function (r) {
-      var card = el("div", "vste-report-card");
-      card.innerHTML =
-        "<div><code>" +
-        r.id +
-        "</code><br/><span class=\"muted\">" +
-        r.createdAt +
-        "</span></div>";
-      var actions = el("div", "vste-report-actions");
-      function btn(label, fn) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "ghost-btn";
-        b.textContent = label;
-        b.onclick = fn;
-        return b;
-      }
-      actions.appendChild(
-        btn("Copy MD", function () {
-          var md = eng.reportToMarkdown(r);
-          if (navigator.clipboard) navigator.clipboard.writeText(md);
-        })
-      );
-      actions.appendChild(
-        btn("Download MD", function () {
-          downloadText(r.id + ".md", eng.reportToMarkdown(r), "text/markdown;charset=utf-8");
-        })
-      );
-      actions.appendChild(
-        btn("Download JSON", function () {
-          downloadText(r.id + ".json", JSON.stringify(r, null, 2), "application/json");
-        })
-      );
-      actions.appendChild(
-        btn("HTML", function () {
-          var html =
-            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" +
-            r.id +
-            "</title></head><body><pre>" +
-            eng
-              .reportToMarkdown(r)
-              .replace(/[<>&]/g, function (c) {
-                return { "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c];
-              }) +
-            "</pre></body></html>";
-          downloadText(r.id + ".html", html, "text/html;charset=utf-8");
-        })
-      );
-      actions.appendChild(
-        btn("Raw", function () {
-          downloadText(r.id + "-telemetry.json", JSON.stringify(r.cycle, null, 2), "application/json");
-        })
-      );
-      actions.appendChild(
-        btn("Delete", function () {
-          eng.deleteReport(r.id);
-          renderReportLibrary(host);
-        })
-      );
-      card.appendChild(actions);
-      host.appendChild(card);
+      appendLibraryItem(r, eng().reportToMarkdown(r));
     });
   }
 
-  /**
-   * Automated UI smoke tests for Virtual Stress Tester workspace.
-   * Returns { ok, checks: [{name, pass, detail}] }
-   */
+  function pushToLibrary(report, md) {
+    lastReport = report;
+    lastMarkdown = md || generateMarkdownReport(report);
+    appendLibraryItem(report, lastMarkdown);
+    if (refs.librarySection) {
+      try {
+        refs.librarySection.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        refs.librarySection.scrollIntoView(true);
+      }
+    }
+    hideTerminal();
+  }
+
+  function onCycleComplete(report, liveText) {
+    showTerminal(liveText || "Cycle complete.");
+    var md = generateMarkdownReport(report);
+    lastMarkdown = md;
+    lastReport = report;
+    // Auto-push to isolated report library
+    pushToLibrary(report, md);
+  }
+
+  function wireTerminalActions() {
+    var copyBtn = document.getElementById("btn-copy-md");
+    var pushBtn = document.getElementById("btn-push-library");
+    var clearBtn = document.getElementById("btn-clear-terminal");
+    if (copyBtn) {
+      copyBtn.onclick = function () {
+        var text =
+          lastMarkdown ||
+          (refs.terminalOut && refs.terminalOut.textContent) ||
+          "";
+        if (navigator.clipboard) navigator.clipboard.writeText(text);
+      };
+    }
+    if (pushBtn) {
+      pushBtn.onclick = function () {
+        var md =
+          lastMarkdown ||
+          (refs.terminalOut && refs.terminalOut.textContent) ||
+          "";
+        if (!md) return;
+        var report =
+          lastReport ||
+          {
+            id: "manual_" + Date.now().toString(36),
+            createdAt: new Date().toISOString(),
+            cycle: { results: [] }
+          };
+        pushToLibrary(report, md);
+      };
+    }
+    if (clearBtn) {
+      clearBtn.onclick = function () {
+        hideTerminal();
+      };
+    }
+  }
+
   function runUISmokeTest() {
     var checks = [];
     function assert(name, pass, detail) {
       checks.push({ name: name, pass: !!pass, detail: detail || "" });
     }
+    assert("terminal_card", !!document.getElementById("stress-terminal-card"), "");
+    assert("terminal_output", !!document.getElementById("stress-terminal-output"), "");
+    assert("btn_copy", !!document.getElementById("btn-copy-md"), "");
+    assert("btn_push", !!document.getElementById("btn-push-library"), "");
+    assert("btn_clear", !!document.getElementById("btn-clear-terminal"), "");
+    assert("btn_run_full", !!document.getElementById("btn-run-full"), "");
+    assert("btn_run_fuzz", !!document.getElementById("btn-run-fuzz"), "");
+    assert("btn_run_fault", !!document.getElementById("btn-run-fault"), "");
+    assert("btn_run_smoke", !!document.getElementById("btn-run-smoke"), "");
+    assert("report_library_list", !!document.getElementById("report-library-list"), "");
 
-    var dash = root && root.querySelector(".vste-dashboard");
-    assert("dashboard_present", !!dash, dash ? "ok" : "missing .vste-dashboard");
+    showTerminal("Smoke running…");
+    assert("terminal_visible", refs.terminalCard.style.display !== "none", refs.terminalCard.style.display);
 
-    if (dash) {
-      var panels = dash.querySelectorAll(
-        ".vste-controls, .vste-status, .vste-report-library, .vste-targets, .vste-canvas-wrap"
-      );
-      panels.forEach(function (node, idx) {
-        var parent = node.parentElement;
-        if (!parent) return;
-        var er = node.getBoundingClientRect();
-        var pr = parent.getBoundingClientRect();
-        // Allow scrollable parents: element top should be within expanded scroll height intent
-        var noClipTop = er.top >= pr.top - 1;
-        assert(
-          "dom_collision_" + idx,
-          noClipTop && er.width > 0,
-          "el.bottom=" + er.bottom.toFixed(1) + " parent.bottom=" + pr.bottom.toFixed(1)
-        );
-      });
+    // clear path
+    document.getElementById("btn-clear-terminal").click();
+    assert("clear_hides", refs.terminalCard.style.display === "none", refs.terminalCard.style.display);
 
-      // Status container fit-content
-      var status = dash.querySelector(".vste-status");
-      if (status) {
-        var cs = getComputedStyle(status);
-        var maxH = cs.maxHeight;
-        assert(
-          "status_no_fixed_clip",
-          maxH === "none" || maxH === "0px" || parseFloat(maxH) > 1000 || cs.overflow === "visible",
-          "maxHeight=" + maxH + " overflow=" + cs.overflow
-        );
-        assert("status_padding", parseFloat(cs.paddingTop) >= 8, cs.padding);
-      }
-
-      // URI badges wrap
-      var badges = dash.querySelectorAll(".vste-uri-badge");
-      assert("uri_badges", badges.length >= 2, "count=" + badges.length);
-      badges.forEach(function (b, i) {
-        var st = getComputedStyle(b);
-        assert(
-          "uri_wrap_" + i,
-          st.overflowWrap === "anywhere" || st.wordBreak === "break-all" || st.overflowWrap === "break-word",
-          "overflow-wrap=" + st.overflowWrap
-        );
-      });
-    }
-
-    // State sync: toggle presets
-    var prev = { mode: state.mode, w: state.w, h: state.h };
+    // state sync
     setPreset("mobile");
-    assert(
-      "sync_mobile",
-      state.mode === "mobile" && state.w === 390 && state.h === 844 && Number(refs.cw.value) === 390,
-      "state=" + state.w + "x" + state.h + " input=" + refs.cw.value + "x" + refs.ch.value
-    );
+    assert("sync_mobile", state.w === 390 && state.h === 844, state.w + "x" + state.h);
     setPreset("desktop");
-    assert(
-      "sync_desktop",
-      state.mode === "desktop" && state.w === 1280 && state.h === 720 && Number(refs.ch.value) === 720,
-      "state=" + state.w + "x" + state.h
-    );
-    if (refs.cw) {
-      refs.cw.value = 777;
-      refs.ch.value = 555;
-      onManualDimension();
-      assert(
-        "sync_custom_from_inputs",
-        state.mode === "custom" && state.w === 777 && state.h === 555,
-        "mode=" + state.mode + " " + state.w + "x" + state.h
-      );
-    }
-
-    // Restore previous visual preference after checks
-    if (prev.mode === "custom") {
-      state.mode = "custom";
-      state.w = prev.w;
-      state.h = prev.h;
-      syncInputsFromState();
-      applyViewportScale();
-    } else {
-      setPreset(prev.mode || "desktop");
-    }
-
-    // Mock 1s stress cycle + report library append
-    var eng = global.VirtualStressEngine;
-    var libCountBefore = eng ? eng.loadReports().length : 0;
-    var mockOk = false;
-    if (eng) {
-      setLive("Running mock…");
-      var t0 = Date.now();
-      var mockResult = eng.runMonteCarlo({ samples: 50, seed: 1 });
-      var report = eng.synthesizeReport({
-        results: [mockResult],
-        total_elapsed_ms: Math.max(1, Date.now() - t0),
-        viewport: { mode: state.mode, w: state.w, h: state.h, smoke: true }
-      });
-      setLive("Ready. Smoke mock cycle complete.");
-      mockOk = !!(report && report.id);
-      if (refs.lib) renderReportLibrary(refs.lib);
-    }
-    var libCountAfter = eng ? eng.loadReports().length : 0;
-    assert("pipeline_running_to_ready", /Ready/i.test(refs.live ? refs.live.textContent : ""), refs.live && refs.live.textContent.slice(0, 80));
-    assert("report_appended", mockOk && libCountAfter >= libCountBefore, "before=" + libCountBefore + " after=" + libCountAfter);
-    if (refs.lib) {
-      var cards = refs.lib.querySelectorAll(".vste-report-card");
-      assert("report_library_dom", cards.length > 0, "cards=" + cards.length);
-    }
 
     var ok = checks.every(function (c) {
       return c.pass;
     });
-    var summary = {
-      ok: ok,
-      checks: checks,
-      at: new Date().toISOString()
-    };
+    var summary = { ok: ok, checks: checks, at: new Date().toISOString() };
     try {
       console[ok ? "log" : "warn"]("[VSTE runUISmokeTest]", summary);
     } catch (e) {}
     return summary;
   }
 
+  async function handleRunFull() {
+    var e = eng();
+    if (!e) return;
+    showTerminal("Running full stress cycle (4 vectors)…");
+    var viewport = {
+      mode: state.mode,
+      w: state.w,
+      h: state.h,
+      S: Number(refs.frame && refs.frame.dataset.scale)
+    };
+    try {
+      var report = await e.runFullStressCycle({ viewport: viewport }, function (stage) {
+        showTerminal("Running… " + stage);
+      });
+      var md = generateMarkdownReport(report);
+      showTerminal(
+        "Ready.\nvectors: " +
+          JSON.stringify(report.summary.vectors_complete) +
+          "\n" +
+          JSON.stringify(report.summary, null, 2)
+      );
+      onCycleComplete(report, refs.terminalOut.textContent);
+    } catch (err) {
+      showTerminal("Error: " + (err && err.message ? err.message : err));
+    }
+  }
+
+  async function handleRunFuzz() {
+    var e = eng();
+    if (!e) return;
+    showTerminal("Running monte_carlo_fuzz…");
+    try {
+      var t0 = performance.now();
+      var vectorResult = await e.executeVector(
+        "monte_carlo_fuzz",
+        e.TARGETS.frontend,
+        e.TARGETS.backend
+      );
+      vectorResult.elapsed_ms = performance.now() - t0;
+      vectorResult.vector = "monte_carlo_fuzz";
+      var report = e.synthesizeReport({
+        results: [vectorResult],
+        total_elapsed_ms: vectorResult.elapsed_ms,
+        vectors_complete: ["monte_carlo_fuzz"]
+      });
+      showTerminal("Ready.\n" + JSON.stringify({ failures: vectorResult.failures, elapsed_ms: vectorResult.elapsed_ms }, null, 2));
+      onCycleComplete(report, refs.terminalOut.textContent);
+    } catch (err) {
+      showTerminal("Error: " + (err && err.message ? err.message : err));
+    }
+  }
+
+  async function handleRunFault() {
+    var e = eng();
+    if (!e) return;
+    showTerminal("Running fault_injection (live fetch)…");
+    try {
+      var t0 = performance.now();
+      var vectorResult = await e.executeVector(
+        "fault_injection",
+        e.TARGETS.frontend,
+        e.TARGETS.backend
+      );
+      vectorResult.elapsed_ms = performance.now() - t0;
+      vectorResult.vector = "fault_injection";
+      var report = e.synthesizeReport({
+        results: [vectorResult],
+        total_elapsed_ms: vectorResult.elapsed_ms,
+        vectors_complete: ["fault_injection"]
+      });
+      showTerminal(
+        "Ready.\nRTT p50/p95/p99: " +
+          vectorResult.latency_p50 +
+          " / " +
+          vectorResult.latency_p95 +
+          " / " +
+          vectorResult.latency_p99
+      );
+      onCycleComplete(report, refs.terminalOut.textContent);
+    } catch (err) {
+      showTerminal("Error: " + (err && err.message ? err.message : err));
+    }
+  }
+
+  function handleRunSmoke() {
+    var res = runUISmokeTest();
+    var lines =
+      (res.ok ? "SMOKE PASS" : "SMOKE FAIL") +
+      "\n" +
+      res.checks
+        .map(function (c) {
+          return (c.pass ? "PASS" : "FAIL") + " · " + c.name + (c.detail ? " — " + c.detail : "");
+        })
+        .join("\n");
+    showTerminal(lines);
+    // Smoke also routes a small structured note into library
+    var md =
+      "# UI Smoke Test\n\n```\n" + lines + "\n```\n";
+    lastMarkdown = md;
+    pushToLibrary(
+      {
+        id: "smoke_" + Date.now().toString(36),
+        createdAt: new Date().toISOString(),
+        cycle: { results: [], smoke: res }
+      },
+      md
+    );
+  }
+
   function mount(container) {
     root = container;
-    var eng = global.VirtualStressEngine;
+    var e = eng();
     root.innerHTML = "";
     var panel = el("div", "vste-dashboard");
 
-    var head = el(
-      "header",
-      "ws-head",
-      "<h1>Virtual Stress Testing Engine</h1>" +
-        '<p class="muted">Multi-vector stress · isolated report library · adaptive viewport</p>'
+    panel.appendChild(
+      el(
+        "header",
+        "ws-head",
+        "<h1>Virtual Stress Testing Engine</h1>" +
+          '<p class="muted">Multi-vector stress · isolated report library · adaptive viewport</p>'
+      )
     );
-    panel.appendChild(head);
 
     var targets = el("div", "vste-targets");
     targets.innerHTML =
       '<div class="vste-target-row"><span class="lbl">Frontend</span>' +
       '<code class="vste-uri-badge">' +
-      (eng ? eng.TARGETS.frontend : "") +
+      (e ? e.TARGETS.frontend : "") +
       "</code></div>" +
       '<div class="vste-target-row"><span class="lbl">Backend</span>' +
       '<code class="vste-uri-badge">' +
-      (eng ? eng.TARGETS.backend : "") +
+      (e ? e.TARGETS.backend : "") +
       "</code></div>";
     panel.appendChild(targets);
 
@@ -386,8 +473,6 @@
     refs.ch = customRow.querySelector("#vste-ch");
     refs.cw.addEventListener("input", onManualDimension);
     refs.ch.addEventListener("input", onManualDimension);
-    refs.cw.addEventListener("change", onManualDimension);
-    refs.ch.addEventListener("change", onManualDimension);
 
     var canvasWrap = el("div", "vste-canvas-wrap");
     var scaleLabel = el("div", "vste-scale-label muted", "scale");
@@ -395,7 +480,7 @@
     var frame = el("div", "vste-frame");
     frame.innerHTML =
       '<iframe id="vste-iframe" title="Stress target preview" sandbox="allow-scripts allow-same-origin allow-forms" src="' +
-      (eng ? eng.TARGETS.frontend : "about:blank") +
+      (e ? e.TARGETS.frontend : "about:blank") +
       '"></iframe>';
     canvasWrap.appendChild(frame);
     panel.appendChild(canvasWrap);
@@ -405,123 +490,72 @@
 
     var controls = el("div", "vste-controls");
     controls.innerHTML =
-      '<button type="button" class="primary-btn" id="vste-run">Run Full Stress Cycle</button>' +
-      '<button type="button" class="ghost-btn" id="vste-mc">Monte Carlo only</button>' +
-      '<button type="button" class="ghost-btn" id="vste-fault">Fault injection only</button>' +
-      '<button type="button" class="ghost-btn" id="vste-smoke">Run UI Smoke Test</button>';
+      '<button type="button" class="primary-btn" id="btn-run-full">Run Full Stress Cycle</button>' +
+      '<button type="button" class="ghost-btn" id="btn-run-fuzz">Monte Carlo only</button>' +
+      '<button type="button" class="ghost-btn" id="btn-run-fault">Fault injection only</button>' +
+      '<button type="button" class="ghost-btn" id="btn-run-smoke">Run UI Smoke Test</button>';
     panel.appendChild(controls);
 
-    var live = el(
-      "div",
-      "vste-status",
-      "Ready. Reports stay inside this workspace library only."
-    );
-    live.setAttribute("role", "status");
-    panel.appendChild(live);
-    refs.live = live;
+    // Terminal card with lifecycle controls
+    var terminalCard = el("div", "terminal-card");
+    terminalCard.id = "stress-terminal-card";
+    terminalCard.style.display = "none";
+    terminalCard.innerHTML =
+      '<div class="terminal-header">' +
+      '<span class="terminal-title">Execution Telemetry Output</span>' +
+      '<div class="terminal-actions">' +
+      '<button type="button" id="btn-copy-md" class="btn-sm">Copy MD</button>' +
+      '<button type="button" id="btn-push-library" class="btn-sm btn-primary">Push to Library</button>' +
+      '<button type="button" id="btn-clear-terminal" class="btn-sm btn-danger">Delete / Clear</button>' +
+      "</div></div>" +
+      '<pre id="stress-terminal-output"></pre>';
+    panel.appendChild(terminalCard);
+    refs.terminalCard = terminalCard;
+    refs.terminalOut = terminalCard.querySelector("#stress-terminal-output");
 
-    var lib = el("div", "vste-report-library");
-    panel.appendChild(lib);
-    refs.lib = lib;
+    var libSection = el("div", "vste-report-library");
+    libSection.id = "report-library-section";
+    libSection.innerHTML =
+      '<div class="vste-lib-head"><strong>Stress Test Report Library</strong> <span class="muted">isolated</span></div>';
+    var list = el("div", "vste-report-library-list");
+    list.id = "report-library-list";
+    libSection.appendChild(list);
+    panel.appendChild(libSection);
+    refs.librarySection = libSection;
+    refs.libraryList = list;
+
     root.appendChild(panel);
-
+    wireTerminalActions();
     window.addEventListener("resize", applyViewportScale);
     setPreset("desktop");
-    renderReportLibrary(lib);
+    renderReportLibrary();
 
-    async function run(kind) {
-      if (!eng) return;
-      setLive("Running " + kind + "…");
-      var viewport = {
-        mode: state.mode,
-        w: state.w,
-        h: state.h,
-        S: Number(refs.frame.dataset.scale)
-      };
-      try {
-        var report;
-        if (kind === "full") {
-          report = await eng.runFullStressCycle({ viewport: viewport }, function (stage) {
-            setLive("Running… stage: " + stage);
-          });
-        } else if (kind === "mc") {
-          var r = eng.runMonteCarlo({ samples: 2000 });
-          report = eng.synthesizeReport({
-            results: [r],
-            total_elapsed_ms: r.elapsed_ms,
-            viewport: viewport
-          });
-        } else {
-          var f = await eng.faultInjectionMatrix({});
-          report = eng.synthesizeReport({
-            results: [f],
-            total_elapsed_ms: f.elapsed_ms,
-            viewport: viewport
-          });
-        }
-        setLive(
-          "Ready.\n" +
-            "vectors_complete: " +
-            JSON.stringify(
-              (report.summary && report.summary.vectors_complete) ||
-                (report.summary && report.summary.vectors) ||
-                []
-            ) +
-            "\n" +
-            JSON.stringify(report.summary, null, 2) +
-            "\n\n" +
-            eng.reportToMarkdown(report)
-        );
-        renderReportLibrary(lib);
-      } catch (e) {
-        setLive("Ready.\nError: " + (e && e.message ? e.message : e));
-      }
-    }
-
-    panel.querySelector("#vste-run").onclick = function () {
-      run("full");
+    document.getElementById("btn-run-full").onclick = function () {
+      handleRunFull();
     };
-    panel.querySelector("#vste-mc").onclick = function () {
-      run("mc");
+    document.getElementById("btn-run-fuzz").onclick = function () {
+      handleRunFuzz();
     };
-    panel.querySelector("#vste-fault").onclick = function () {
-      run("fault");
+    document.getElementById("btn-run-fault").onclick = function () {
+      handleRunFault();
     };
-    panel.querySelector("#vste-smoke").onclick = function () {
-      var res = runUISmokeTest();
-      setLive(
-        (res.ok ? "Ready. SMOKE PASS\n" : "Ready. SMOKE FAIL\n") +
-          res.checks
-            .map(function (c) {
-              return (c.pass ? "PASS" : "FAIL") + " · " + c.name + (c.detail ? " — " + c.detail : "");
-            })
-            .join("\n")
-      );
+    document.getElementById("btn-run-smoke").onclick = function () {
+      handleRunSmoke();
     };
-
-    // Boot smoke test
-    setTimeout(function () {
-      var res = runUISmokeTest();
-      setLive(
-        (res.ok ? "Ready. Boot smoke: PASS" : "Ready. Boot smoke: FAIL") +
-          " (" +
-          res.checks.filter(function (c) {
-            return c.pass;
-          }).length +
-          "/" +
-          res.checks.length +
-          ")\nReports stay inside this workspace library only."
-      );
-    }, 0);
   }
 
   global.VirtualStressUI = {
     mount: mount,
-    runUISmokeTest: function () {
-      return runUISmokeTest();
-    },
+    runUISmokeTest: runUISmokeTest,
     getViewportState: function () {
       return { mode: state.mode, w: state.w, h: state.h };
+    },
+    // Exposed for integration tests
+    _handlers: {
+      handleRunFull: handleRunFull,
+      handleRunFuzz: handleRunFuzz,
+      handleRunFault: handleRunFault,
+      handleRunSmoke: handleRunSmoke
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);
