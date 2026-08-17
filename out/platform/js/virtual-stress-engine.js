@@ -106,25 +106,38 @@
   }
 
   /** Validate / fuzz boundary payloads against a real input validation function */
-  function validatePayload(v) {
-    if (v == null) throw new TypeError("nullish_payload_rejected");
-    if (v.nullish === null || v.nullish === undefined) {
-      throw new TypeError("nullish_field_rejected");
+  /**
+   * Defensive payload validation — returns boolean, never throws on bad input shape.
+   */
+  function validatePayload(input) {
+    // Guard 1: Defensive type and nullish check
+    if (!input || typeof input !== "object") {
+      return false;
     }
-    if (typeof v.boundary === "number" && isNaN(v.boundary)) {
-      throw new RangeError("nan_boundary");
+    var boundary = input.boundary;
+    var nullish = input.nullish;
+    var payload = input.payload;
+
+    // Guard 2: Safe boundary parsing and clamping policy
+    var safeBoundary = Number.isFinite(boundary) ? boundary : 0;
+    if (safeBoundary < 0 || safeBoundary >= Number.MAX_SAFE_INTEGER) {
+      return false; // explicit validation failure instead of RangeError
     }
-    if (v.boundary === Number.MAX_SAFE_INTEGER) {
-      throw new RangeError("max_safe_integer_boundary");
+
+    // Guard 3: Nullish string handling (null means rejected; non-string non-null rejected)
+    if (nullish !== null && typeof nullish !== "string") {
+      return false;
     }
-    if (v.boundary < 0) {
-      throw new RangeError("negative_boundary");
+    if (nullish === null) {
+      return false;
     }
-    var r =
-      Math.sqrt(Math.abs(v.payload.x)) +
-      Math.log1p(Math.abs((Number(v.boundary) || 0) % 1e5));
-    if (!isFinite(r)) throw new RangeError("non_finite_result");
-    return r;
+
+    // Guard 4: Sub-payload validation
+    if (!payload || typeof payload.x !== "number" || typeof payload.y !== "number") {
+      return false;
+    }
+
+    return true;
   }
 
   async function executeMonteCarloFuzz() {
@@ -155,20 +168,20 @@
         }
       };
       var s = now();
-      try {
-        validatePayload(v);
-      } catch (e) {
+      var ok = validatePayload(v);
+      if (!ok) {
         failures++;
         if (failureTelemetry.length < 30) {
           failureTelemetry.push({
             index: i,
             input_payload: v,
-            exception: stackFromError(e),
-            error_code: e && e.name ? e.name : "Error",
+            exception: "validatePayload_returned_false",
+            error_code: "ValidationFailure",
             state_boundary: {
               boundary: v.boundary,
               nullish: v.nullish,
-              u: v.u
+              u: v.u,
+              safeBoundary: Number.isFinite(v.boundary) ? v.boundary : 0
             }
           });
         }
@@ -379,52 +392,68 @@
     var beRtt = await measureNetworkRtt(backend, 9, 10000);
     var beHealth = await measureNetworkRtt(backend.replace(/\/$/, "") + "/health", 7, 10000);
 
-    async function probe(name, url, init) {
-      var t0 = now();
-      var status = 0;
-      var ok = false;
-      var err = null;
-      var input = { name: name, url: url, init: init || { method: "GET" } };
+    /**
+     * Structured network probe — never throws; malformed bodies / transport failures return error object.
+     */
+    async function executeFaultProbe(probe) {
       try {
         var ctrl = new AbortController();
         var timer = setTimeout(function () {
           ctrl.abort();
         }, 10000);
-        var res = await fetch(
-          url,
-          Object.assign({ signal: ctrl.signal, mode: "cors", cache: "no-store" }, init || {})
+        var response = await fetch(
+          probe.url,
+          Object.assign(
+            { signal: ctrl.signal, mode: "cors", cache: "no-store" },
+            probe.init || { method: "GET" }
+          )
         );
         clearTimeout(timer);
-        status = res.status;
-        ok = res.ok || res.type === "opaque";
-        if (!ok && status >= 400) {
-          failures++;
-          failureTelemetry.push({
-            index: probes.length,
-            input_payload: input,
-            exception: "HTTP_" + status,
-            error_code: "HTTP_" + status,
-            state_boundary: { status: status, latency_ms: now() - t0 }
-          });
-        }
-      } catch (e) {
-        err = e && e.name === "AbortError" ? "timeout" : String(e.message || e);
-        if (/Failed to fetch|NetworkError|CORS/i.test(err)) err = "network_or_cors";
+        return {
+          status: response.status,
+          ok: response.ok || response.type === "opaque",
+          error: null
+        };
+      } catch (err) {
+        var msg =
+          err && err.name === "AbortError"
+            ? "timeout"
+            : err && err.message
+              ? err.message
+              : "Network transport failure";
+        if (/Failed to fetch|NetworkError|CORS/i.test(msg)) msg = "network_or_cors";
+        return {
+          status: 0,
+          ok: false,
+          error: msg
+        };
+      }
+    }
+
+    async function probe(name, url, init) {
+      var t0 = now();
+      var input = { name: name, url: url, init: init || { method: "GET" } };
+      var result = await executeFaultProbe({ url: url, init: init || { method: "GET" } });
+      if (!result.ok) {
         failures++;
         failureTelemetry.push({
           index: probes.length,
           input_payload: input,
-          exception: stackFromError(e),
-          error_code: e && e.name ? e.name : err,
-          state_boundary: { latency_ms: now() - t0, network_error: true }
+          exception: result.error || ("HTTP_" + result.status),
+          error_code: result.error || ("HTTP_" + result.status),
+          state_boundary: {
+            status: result.status,
+            latency_ms: now() - t0,
+            network_error: !!result.error
+          }
         });
       }
       probes.push({
         name: name,
         url: url,
-        status: status,
-        ok: ok,
-        error: err,
+        status: result.status,
+        ok: result.ok,
+        error: result.error,
         latency_ms: now() - t0
       });
     }
