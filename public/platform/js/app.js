@@ -166,7 +166,18 @@
     if ($("setting-threat")) $("setting-threat").textContent = snap.threat || "—";
   }
 
-  function goWork(macroOrAegis) {
+  function goStress() {
+    showScreen("work");
+    openDrawer(false);
+    if ($("screen-title")) $("screen-title").textContent = "Virtual Stress Tester";
+    if ($("screen-sub")) $("screen-sub").textContent = "Isolated report library · multi-vector stress";
+    var work = $("work-root");
+    if (work && window.VirtualStressUI) {
+      window.VirtualStressUI.mount(work);
+    }
+  }
+
+    function goWork(macroOrAegis) {
     showScreen("work");
     openDrawer(false);
     if (!window.WorkspaceRouter) return;
@@ -209,6 +220,8 @@
           refreshSettings();
         } else if (go === "aegis") {
           goWork("aegis");
+        } else if (go === "stress") {
+          goStress();
         } else {
           goWork(go);
         }

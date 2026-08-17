@@ -510,3 +510,134 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .ingest-zone.compact { margin: 8px 0; padding: 8px; }
 .ingest-zone.compact .ingest-drop { padding: 12px; }
 .lang-host { margin-bottom: 8px; }
+
+/* Virtual Stress Testing Engine — isolated dashboard */
+.vste-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 12px 24px;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+.vste-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font);
+}
+.vste-targets .lbl {
+  color: var(--muted);
+  margin-right: 8px;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.vste-targets code {
+  color: var(--accent);
+  word-break: break-all;
+  font-size: 11px;
+}
+.vste-viewport-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vste-viewport-toggles .ghost-btn.active {
+  border-color: rgba(0, 255, 157, 0.45);
+  color: var(--accent);
+}
+.vste-custom-dim {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.vste-custom-dim input {
+  width: 88px;
+  margin-left: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.vste-canvas-wrap {
+  position: relative;
+  height: min(42vh, 360px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #07090d;
+  overflow: hidden;
+  padding: 8px;
+}
+.vste-scale-label {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 2;
+  font-size: 10px;
+  font-family: var(--font);
+}
+.vste-frame {
+  background: #111;
+  box-shadow: 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.vste-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.vste-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vste-controls .primary-btn,
+.vste-controls .ghost-btn {
+  width: auto;
+  margin: 0;
+}
+.vste-live {
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-family: var(--font);
+  white-space: pre-wrap;
+}
+.vste-report-library {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.vste-lib-head {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.vste-report-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.vste-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.vste-report-actions .ghost-btn {
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.drawer-link { /* ensure stress link matches existing */ }

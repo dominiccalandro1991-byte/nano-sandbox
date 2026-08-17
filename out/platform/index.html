@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0c10" />
   <title>Voltage Cipher Studio</title>
-  <link rel="stylesheet" href="css/platform.css?v=platform-2.4" />
+  <link rel="stylesheet" href="css/platform.css?v=platform-2.5" />
 </head>
 <body>
   <div id="app" class="app">
@@ -24,6 +24,7 @@
       <button type="button" class="drawer-link" data-go="deploy">Deploy · φ16–20</button>
       <div class="drawer-label">Diagnostics</div>
       <button type="button" class="drawer-link" data-go="aegis">🛡️ NASE-AEGIS</button>
+      <button type="button" class="drawer-link" data-go="stress">🧪 Virtual Stress Tester</button>
       <div class="drawer-label">System</div>
       <button type="button" class="drawer-link" data-go="settings">⚙️ Settings</button>
       <p id="drawer-hsys" class="drawer-meta">H_sys —</p>
@@ -80,12 +81,14 @@
     </div>
   </div>
 
-  <script src="js/nase-daemon.js?v=platform-2.4"></script>
-  <script src="js/engine-isolates.js?v=platform-2.4"></script>
-  <script src="js/codegen-utils.js?v=platform-2.4"></script>
-  <script src="js/chat-partition.js?v=platform-2.4"></script>
-  <script src="js/engine-chat.js?v=platform-2.4"></script>
-  <script src="js/workspace-router.js?v=platform-2.4"></script>
-  <script src="js/app.js?v=platform-2.4"></script>
+  <script src="js/nase-daemon.js?v=platform-2.5"></script>
+  <script src="js/engine-isolates.js?v=platform-2.5"></script>
+  <script src="js/codegen-utils.js?v=platform-2.5"></script>
+  <script src="js/chat-partition.js?v=platform-2.5"></script>
+  <script src="js/engine-chat.js?v=platform-2.5"></script>
+  <script src="js/workspace-router.js?v=platform-2.5"></script>
+  <script src="js/virtual-stress-engine.js?v=platform-2.5"></script>
+  <script src="js/virtual-stress-ui.js?v=platform-2.5"></script>
+  <script src="js/app.js?v=platform-2.5"></script>
 </body>
 </html>
