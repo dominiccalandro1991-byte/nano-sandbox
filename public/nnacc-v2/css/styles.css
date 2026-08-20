@@ -781,3 +781,82 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
 #report-library-list {
   min-height: 24px;
 }
+
+
+/* —— History rail (unified-1.1) — reserved pane, never crushed —— */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sidebar{overflow:hidden}
+.history-rail{
+  flex:1 1 42%;
+  min-height:220px;
+  max-height:none;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.12);
+}
+.history-rail-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 14px 4px}
+.history-rail-head h2{margin:0;font-family:var(--font);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.history-count{font-family:var(--font);font-size:10px;color:var(--muted);opacity:.8}
+.history-search{display:block;padding:6px 12px 8px}
+.history-search input{
+  width:100%;box-sizing:border-box;padding:9px 11px;min-height:40px;
+  border-radius:10px;border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font-family:var(--font-ui);font-size:13px;outline:none;
+}
+.history-search input:focus{border-color:var(--primary)}
+.history-filters{display:flex;gap:4px;padding:0 12px 8px;flex-wrap:wrap}
+.hist-filter{
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  border-radius:999px;padding:5px 9px;font-size:11px;cursor:pointer;min-height:32px;
+}
+.hist-filter.active{background:var(--primary-dim);color:var(--primary);border-color:rgba(61,139,253,.4)}
+.session-history{
+  flex:1 1 auto !important;
+  min-height:120px !important;
+  max-height:none !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  padding:0 8px 12px !important;
+  width:100%;
+  box-sizing:border-box;
+  -webkit-overflow-scrolling:touch;
+}
+.history-group{
+  font-family:var(--font);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);padding:10px 6px 4px;opacity:.75;
+}
+.history-empty{padding:16px 10px;color:var(--muted);text-align:left}
+.history-empty strong{display:block;color:var(--text);font-size:13px;margin-bottom:4px}
+.history-empty p{font-size:12px;line-height:1.4;margin:0}
+.session-item{
+  display:flex;align-items:stretch;gap:4px;width:100%;
+  padding:4px;border-radius:10px;min-height:52px;
+  background:transparent;border:1px solid transparent;box-sizing:border-box;
+}
+.session-item.active{background:var(--primary-dim);border-color:rgba(61,139,253,.28)}
+.session-item.pinned{background:rgba(240,180,41,.06)}
+.session-open{
+  flex:1 1 auto;min-width:0;min-height:44px;text-align:left;cursor:pointer;
+  background:transparent;border:none;color:inherit;padding:6px 8px;
+  display:flex;flex-direction:column;gap:3px;font-family:var(--font-ui);
+}
+.session-open .session-title{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-open .session-preview{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-meta-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.session-time,.session-meta{font-family:var(--font);font-size:10px;color:var(--muted)}
+.hist-chip{font-family:var(--font);font-size:9px;padding:1px 6px;border-radius:999px;background:rgba(61,139,253,.12);color:var(--primary)}
+.session-trail{display:flex;flex-direction:column;justify-content:center;gap:2px;flex:0 0 auto}
+.session-icon-btn{
+  width:32px;min-height:32px;border:none;border-radius:8px;background:transparent;
+  color:var(--muted);cursor:pointer;font-size:12px;
+}
+.session-icon-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.session-icon-btn.danger:hover{color:var(--danger)}
+.session-icon-btn.confirm{background:rgba(255,107,107,.2);color:var(--danger);width:auto;padding:0 8px;font-size:11px}
+.session-item mark{background:rgba(240,180,41,.35);color:var(--text);padding:0 1px;border-radius:2px}
+.sidebar-nav{flex:1 1 58%;min-height:0;overflow-y:auto}
+@media (max-width:768px){
+  .history-rail{min-height:180px;flex-basis:38%}
+}

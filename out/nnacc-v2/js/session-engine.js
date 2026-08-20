@@ -90,15 +90,36 @@
       const index = readIndex().filter(function (e) {
         return e.id !== session.id;
       });
+      var msgs = session.messages || [];
+      var last = null;
+      var tools = [];
+      var hay = [];
+      msgs.forEach(function (m) {
+        if (m && m.tool && tools.indexOf(m.tool) < 0) tools.push(m.tool);
+        if (m && (m.text || m.content) && m.kind !== "file-badge") {
+          hay.push(String(m.text || m.content));
+          if (m.role !== "system") last = m;
+        }
+      });
+      var prevPinned = false;
+      readIndex().forEach(function (e) {
+        if (e.id === session.id) prevPinned = !!e.pinned;
+      });
       index.unshift({
         id: session.id,
         title: session.title || "Untitled chat",
         updatedAt: session.updatedAt,
         createdAt: session.createdAt,
-        messageCount: (session.messages || []).filter(function (m) {
-          return m.role !== "system";
+        messageCount: msgs.filter(function (m) {
+          return m && m.role !== "system";
         }).length,
         fileCount: (session.files || []).length,
+        preview: last
+          ? String(last.text || last.content || "").replace(/\s+/g, " ").slice(0, 90)
+          : "No messages yet",
+        tools: tools,
+        pinned: !!(session.pinned || prevPinned),
+        haystack: hay.join("\n").slice(0, 8000)
       });
       writeIndex(index.slice(0, 40));
       return true;
@@ -124,7 +145,36 @@
   }
 
   function listSessions() {
-    return readIndex();
+    var list = readIndex();
+    list.sort(function (a, b) {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+    return list;
+  }
+
+  function pinSession(id, pinned) {
+    var s = readSession(id);
+    if (s) {
+      s.pinned = !!pinned;
+      writeSession(s);
+    } else {
+      var index = readIndex().map(function (e) {
+        if (e.id === id) e.pinned = !!pinned;
+        return e;
+      });
+      writeIndex(index);
+    }
+    return !!pinned;
+  }
+
+  function renameSession(id, title) {
+    var s = readSession(id);
+    if (!s) return false;
+    s.title = String(title || "").trim() || s.title;
+    s.titleLocked = true;
+    writeSession(s);
+    return true;
   }
 
   function getActiveSessionId() {
@@ -204,6 +254,7 @@
   }
 
   function autoTitle(session) {
+    if (session && session.titleLocked) return session.title;
     const title = deriveTitle(session);
     if (title && title !== session.title) {
       session.title = title;
@@ -293,6 +344,8 @@
     loadSession: readSession,
     saveSession: writeSession,
     deleteSession: deleteSession,
+    pinSession: pinSession,
+    renameSession: renameSession,
     getActiveSessionId: getActiveSessionId,
     setActiveSessionId: setActiveSessionId,
     loadOrCreateActive: loadOrCreateActive,

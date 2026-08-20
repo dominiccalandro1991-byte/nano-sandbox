@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio</title>
-  <link rel="stylesheet" href="../nnacc-v2/css/styles.css?v=unified-1.0" />
+  <link rel="stylesheet" href="../nnacc-v2/css/styles.css?v=unified-1.1" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -26,9 +26,24 @@
           <span>⚡ RUN AEGIS DIAGNOSTIC</span>
         </button>
       </div>
-      <nav class="sidebar-nav">
-        <div class="nav-section-label">Chat History</div>
+      <section id="history-rail" class="history-rail" aria-label="Chat history">
+        <div class="history-rail-head">
+          <h2>Chats</h2>
+          <span id="history-count" class="history-count">0</span>
+        </div>
+        <label class="history-search">
+          <span class="sr-only">Search conversations</span>
+          <input id="history-search" type="search" placeholder="Search every word…" autocomplete="off" enterkeyhint="search" />
+        </label>
+        <div class="history-filters" role="tablist" aria-label="Filter conversations">
+          <button type="button" class="hist-filter active" data-filter="all">All</button>
+          <button type="button" class="hist-filter" data-filter="pinned">Pinned</button>
+          <button type="button" class="hist-filter" data-filter="files">Files</button>
+          <button type="button" class="hist-filter" data-filter="engines">Engines</button>
+        </div>
         <div id="session-history" class="session-history" role="list"></div>
+      </section>
+      <nav class="sidebar-nav">
         <div class="nav-section-label">Section A · Engine Core</div>
         <button class="nav-item active" data-view="chat" data-engine="25"><span class="nav-icon">💬</span><span>NNACC Core</span><span class="badge">25</span></button>
         <button class="nav-item" data-view="usse" data-engine="23"><span class="nav-icon">⚡</span><span>USSE Lab</span><span class="badge">E23</span></button>
@@ -244,7 +259,8 @@
     <script src="../nnacc-v2/js/usse-bridge.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/studio-engine.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/vault-engine.js?v=unified-1.0"></script>
-  <script src="../nnacc-v2/js/session-engine.js?v=unified-1.0"></script>
+  <script src="../nnacc-v2/js/session-engine.js?v=unified-1.1"></script>
+  <script src="../nnacc-v2/js/history-rail.js?v=unified-1.1"></script>
   <script src="../nnacc-v2/js/debug-security-engine.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/codegen-utils.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/chat-partition.js?v=unified-1.0"></script>
@@ -253,6 +269,6 @@
   <script src="../nnacc-v2/js/virtual-stress-ui.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="../nnacc-v2/js/aegis-engine.js?v=unified-1.0"></script>
-  <script src="../nnacc-v2/js/ui-controller.js?v=unified-1.0"></script>
+  <script src="../nnacc-v2/js/ui-controller.js?v=unified-1.1"></script>
 </body>
 </html>
