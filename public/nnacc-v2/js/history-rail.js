@@ -198,10 +198,10 @@
 
       var del = document.createElement("button");
       del.type = "button";
-      del.className = "session-icon-btn danger";
-      del.title = "Delete";
+      del.className = "session-icon-btn session-delete-btn danger";
+      del.title = "Delete this chat";
       del.setAttribute("aria-label", "Delete conversation");
-      del.textContent = "✕";
+      del.textContent = "Delete";
       del.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (row.classList.contains("confirm-delete")) {
@@ -209,11 +209,11 @@
           return;
         }
         row.classList.add("confirm-delete");
-        del.textContent = "Delete";
+        del.textContent = "Tap again";
         del.classList.add("confirm");
         setTimeout(function () {
           row.classList.remove("confirm-delete");
-          del.textContent = "✕";
+          del.textContent = "Delete";
           del.classList.remove("confirm");
         }, 2800);
       });

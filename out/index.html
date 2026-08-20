@@ -1,1 +1,296 @@
-<!DOCTYPE html><html lang="en" class="bg-background" style="--font-ui:ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Inter, &quot;Helvetica Neue&quot;, Arial, sans-serif;--font-code:ui-monospace, &quot;SF Mono&quot;, &quot;SFMono-Regular&quot;, &quot;Cascadia Code&quot;, &quot;Fira Code&quot;, &quot;IBM Plex Mono&quot;, Menlo, Consolas, monospace"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/><link rel="stylesheet" href="/nano-sandbox/_next/static/chunks/2fnsql44qt3un.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/nano-sandbox/_next/static/chunks/3l04zcqx63h3y.js"/><script src="/nano-sandbox/_next/static/chunks/1xjqvr4__x-gi.js" async=""></script><script src="/nano-sandbox/_next/static/chunks/08ttfj81-47mu.js" async=""></script><script src="/nano-sandbox/_next/static/chunks/turbopack-0ohzk1r_g_agj.js" async=""></script><script src="/nano-sandbox/_next/static/chunks/3fntmmi971322.js" async="" crossorigin=""></script><script src="/nano-sandbox/_next/static/chunks/1p__193wj1le5.js" async="" crossorigin=""></script><meta name="theme-color" content="#1b1d22"/><meta name="color-scheme" content="dark"/><title>Ultimate Fix-It / NanoHabitat</title><meta name="description" content="On-device multi-modal diagnostic engine: content-addressed store, working-set governor, live module runtime, 24 validation engines, and a 60-case verification suite. Runs entirely client-side."/><meta name="application-name" content="Ultimate Fix-It"/><link rel="manifest" href="/nano-sandbox/manifest.webmanifest"/><meta name="format-detection" content="telephone=no"/><meta name="mobile-web-app-capable" content="yes"/><meta name="apple-mobile-web-app-title" content="Ultimate Fix-It"/><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/><link rel="icon" href="/nano-sandbox/icon.svg" type="image/svg+xml"/><script src="/nano-sandbox/_next/static/chunks/0cz1d0mv5g_q7.js" noModule=""></script></head><body class="antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex min-h-dvh flex-col"><header class="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-md" style="padding-top:env(safe-area-inset-top)"><div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-2.5"><div class="flex min-w-0 flex-col"><h1 class="font-mono text-[13px] font-semibold tracking-tight">Ultimate Fix-It<span class="text-primary"> / </span><span class="text-muted-foreground">booting</span></h1><p class="tabnum truncate font-mono text-[10px] text-muted-foreground/70">—<!-- --> · head <!-- -->—</p></div><span class="size-2 shrink-0 rounded-full bg-muted-foreground animate-pulse" aria-hidden="true"></span></div><div class="mx-auto w-full max-w-2xl border-t border-border/60 px-4 py-1.5"><p class="font-mono text-[10px] text-muted-foreground"><span class="text-foreground">Overview</span><span class="mx-1.5 text-muted-foreground/40">·</span>What this app is and how the pieces fit</p></div></header><main class="mx-auto w-full max-w-2xl flex-1 px-4 py-3"><p class="py-16 text-center font-mono text-xs text-muted-foreground">opening container…</p></main><nav class="sticky bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-md" style="padding-bottom:env(safe-area-inset-bottom)" aria-label="App sections"><div class="mx-auto w-full max-w-2xl space-y-1.5 px-2 py-1.5"><div><div class="flex items-baseline justify-between gap-2 px-1 pb-0.5"><p class="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/70">Start here</p><p class="truncate font-mono text-[8px] text-muted-foreground/45">Orientation and your project habitats</p></div><ul class="scroll-panel flex gap-1 overflow-x-auto"><li class="min-w-0 flex-1"><button type="button" aria-current="page" title="What this app is and how the pieces fit" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors bg-primary/10 text-primary"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-info size-3.5" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Overview</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Create / select a project container" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-boxes size-3.5" aria-hidden="true"><path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"></path><path d="m7 16.5-4.74-2.85"></path><path d="m7 16.5 5-3"></path><path d="M7 16.5v5.17"></path><path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"></path><path d="m17 16.5-5-3"></path><path d="m17 16.5 4.74-2.85"></path><path d="M17 16.5v5.17"></path><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"></path><path d="M12 8 7.26 5.15"></path><path d="m12 8 4.74-2.85"></path><path d="M12 13.5V8"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Habitats</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Browse content-addressed files in the habitat" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-code-corner size-3.5" aria-hidden="true"><path d="M4 12.15V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2h-3.35"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="m5 16-3 3 3 3"></path><path d="m9 22 3-3-3-3"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Files</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Find habitats and content by text" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search size-3.5" aria-hidden="true"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Search</span></button></li></ul></div><div><div class="flex items-baseline justify-between gap-2 px-1 pb-0.5"><p class="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/70">Diagnostic engines</p><p class="truncate font-mono text-[8px] text-muted-foreground/45">Run the 25 validators (physics, repair, NASE…)</p></div><ul class="scroll-panel flex gap-1 overflow-x-auto"><li class="min-w-0 flex-1"><button type="button" title="Execute modules inside the selected habitat" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal size-3.5" aria-hidden="true"><path d="M12 19h8"></path><path d="m4 17 6-6-6-6"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Local run</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Submit JSON jobs to the backend engine API" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud size-3.5" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Remote jobs</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Built-in 60-case NHSE verification suite" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-check size-3.5" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Self-test</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Security agents, attestation, Tool-Gateway" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield size-3.5" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">NASE</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Native chat core · tool routing · habitat memory" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square size-3.5" aria-hidden="true"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">NNACC</span></button></li></ul></div><div><div class="flex items-baseline justify-between gap-2 px-1 pb-0.5"><p class="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/70">Store &amp; structure</p><p class="truncate font-mono text-[8px] text-muted-foreground/45">Integrity graph and capacity of the CAS</p></div><ul class="scroll-panel flex gap-1 overflow-x-auto"><li class="min-w-0 flex-1"><button type="button" title="Architecture / dependency graph for the habitat" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-network size-3.5" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Graph</span></button></li><li class="min-w-0 flex-1"><button type="button" title="Bytes used, expansion factor, backend type" class="flex min-h-11 w-full min-w-12 flex-col items-center justify-center gap-0.5 rounded-md transition-colors text-muted-foreground active:bg-accent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-gauge size-3.5" aria-hidden="true"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg><span class="font-mono text-[8px] uppercase tracking-[0.06em]">Capacity</span></button></li></ul></div></div></nav></div><!--$--><!--/$--><script src="/nano-sandbox/_next/static/chunks/3l04zcqx63h3y.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[39756,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"default\"]\n3:I[37457,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"default\"]\n4:I[65433,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\",\"/nano-sandbox/_next/static/chunks/1p__193wj1le5.js\"],\"Shell\"]\n5:I[97367,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"OutletBoundary\"]\n6:\"$Sreact.suspense\"\n8:I[97367,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"ViewportBoundary\"]\na:I[97367,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"MetadataBoundary\"]\nc:I[68027,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"default\",1]\n:HL[\"/nano-sandbox/_next/static/chunks/2fnsql44qt3un.css\",\"style\"]\n0:{\"P\":null,\"c\":[\"\",\"\"],\"q\":\"\",\"i\":false,\"f\":[[[\"\",{\"children\":[\"__PAGE__\",{},\"$undefined\",\"$undefined\",4608]},\"$undefined\",\"$undefined\",4624],[[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/nano-sandbox/_next/static/chunks/2fnsql44qt3un.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-0\",{\"src\":\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\",\"async\":true,\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"className\":\"bg-background\",\"style\":{\"--font-ui\":\"ui-sans-serif, -apple-system, BlinkMacSystemFont, \\\"Segoe UI\\\", Roboto, Inter, \\\"Helvetica Neue\\\", Arial, sans-serif\",\"--font-code\":\"ui-monospace, \\\"SF Mono\\\", \\\"SFMono-Regular\\\", \\\"Cascadia Code\\\", \\\"Fira Code\\\", \\\"IBM Plex Mono\\\", Menlo, Consolas, monospace\"},\"children\":[\"$\",\"body\",null,{\"className\":\"antialiased\",\"children\":[\"$\",\"$L2\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L3\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}],{\"children\":[[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"$L4\",null,{}],[[\"$\",\"script\",\"script-0\",{\"src\":\"/nano-sandbox/_next/static/chunks/1p__193wj1le5.js\",\"async\":true,\"nonce\":\"$undefined\"}]],[\"$\",\"$L5\",null,{\"children\":[\"$\",\"$6\",null,{\"name\":\"Next.MetadataOutlet\",\"children\":\"$@7\"}]}]]}],{},null,false,null]},null,false,null],[\"$\",\"$1\",\"h\",{\"children\":[null,[\"$\",\"$L8\",null,{\"children\":\"$L9\"}],[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$La\",null,{\"children\":[\"$\",\"$6\",null,{\"name\":\"Next.Metadata\",\"children\":\"$Lb\"}]}]}],null]}],false]],\"m\":\"$undefined\",\"G\":[\"$c\",[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/nano-sandbox/_next/static/chunks/2fnsql44qt3un.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]]],\"S\":true,\"h\":null,\"r\":\"$undefined\",\"s\":\"$undefined\",\"a\":\"$undefined\",\"l\":\"$undefined\",\"p\":\"$undefined\",\"d\":\"$undefined\",\"b\":\"k5CY5o4OrzjYHEmhReUr3\"}\n9:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\"}],[\"$\",\"meta\",\"2\",{\"name\":\"theme-color\",\"content\":\"#1b1d22\"}],[\"$\",\"meta\",\"3\",{\"name\":\"color-scheme\",\"content\":\"dark\"}]]\nd:I[27201,[\"/nano-sandbox/_next/static/chunks/3fntmmi971322.js\"],\"IconMark\"]\n7:null\nb:[[\"$\",\"title\",\"0\",{\"children\":\"Ultimate Fix-It / NanoHabitat\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"On-device multi-modal diagnostic engine: content-addressed store, working-set governor, live module runtime, 24 validation engines, and a 60-case verification suite. Runs entirely client-side.\"}],[\"$\",\"meta\",\"2\",{\"name\":\"application-name\",\"content\":\"Ultimate Fix-It\"}],[\"$\",\"link\",\"3\",{\"rel\":\"manifest\",\"href\":\"/nano-sandbox/manifest.webmanifest\",\"crossOrigin\":\"$undefined\"}],[\"$\",\"meta\",\"4\",{\"name\":\"format-detection\",\"content\":\"telephone=no\"}],[\"$\",\"meta\",\"5\",{\"name\":\"mobile-web-app-capable\",\"content\":\"yes\"}],[\"$\",\"meta\",\"6\",{\"name\":\"apple-mobile-web-app-title\",\"content\":\"Ultimate Fix-It\"}],[\"$\",\"meta\",\"7\",{\"name\":\"apple-mobile-web-app-status-bar-style\",\"content\":\"black-translucent\"}],[\"$\",\"link\",\"8\",{\"rel\":\"icon\",\"href\":\"/nano-sandbox/icon.svg\",\"type\":\"image/svg+xml\"}],[\"$\",\"$Ld\",\"9\",{}]]\n"])</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>Voltage Cipher Studio · NNACC</title>
+  <link rel="stylesheet" href="css/styles.css?v=unified-2.0" />
+</head>
+<body>
+    <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
+    <strong>VOLATILE STORAGE DETECTED:</strong> Operating in Memory-Only Mode. Data may be lost on refresh.
+    <button type="button" id="dismiss-volatile-banner" class="icon-btn" aria-label="Dismiss">✕</button>
+  </div>
+<div id="app" class="app">
+    <aside id="sidebar" class="sidebar" aria-label="Global navigation">
+      <div class="sidebar-header">
+        <span class="logo">Voltage Cipher · NNACC</span>
+        <button id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
+      </div>
+      <div class="sidebar-actions">
+        <button id="new-chat-btn" class="new-chat-btn" type="button" title="Start a new chat thread">
+          <span>+ New Chat</span>
+        </button>
+        <button id="run-aegis-sweep" class="aegis-btn self-test-btn" type="button" title="Run AEGIS diagnostic sweep">
+          <span>⚡ RUN AEGIS DIAGNOSTIC</span>
+        </button>
+      </div>
+      <section id="history-rail" class="history-rail" aria-label="Chat history">
+        <div class="history-rail-head">
+          <h2>Chats</h2>
+          <span id="history-count" class="history-count">0</span>
+        </div>
+        <label class="history-search">
+          <span class="sr-only">Search conversations</span>
+          <input id="history-search" type="search" placeholder="Search every word…" autocomplete="off" enterkeyhint="search" />
+        </label>
+        <div class="history-filters" role="tablist" aria-label="Filter conversations">
+          <button type="button" class="hist-filter active" data-filter="all">All</button>
+          <button type="button" class="hist-filter" data-filter="pinned">Pinned</button>
+          <button type="button" class="hist-filter" data-filter="files">Files</button>
+          <button type="button" class="hist-filter" data-filter="engines">Engines</button>
+        </div>
+        <div id="session-history" class="session-history" role="list"></div>
+      </section>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Section A · Engine Core</div>
+        <button class="nav-item active" data-view="chat" data-engine="25"><span class="nav-icon">💬</span><span>NNACC Core</span><span class="badge">25</span></button>
+        <button class="nav-item" data-view="usse" data-engine="23"><span class="nav-icon">⚡</span><span>USSE Lab</span><span class="badge">E23</span></button>
+        <button class="nav-item" data-view="oiav" data-engine="24"><span class="nav-icon">🔒</span><span>OIAV Vault</span><span class="badge">E24</span></button>
+        <button class="nav-item" data-view="registry"><span class="nav-icon">📋</span><span>Engine Registry</span><span class="badge">1–25</span></button>
+        <button class="nav-item" data-view="vault"><span class="nav-icon">📁</span><span>File Vault</span><span class="badge" id="vault-badge-count">0</span></button>
+        <div class="nav-section-label">Section B · Creative Studio</div>
+        <button class="nav-item" data-view="studio"><span class="nav-icon">🎨</span><span>Creative Canvas</span><span class="badge">GEN</span></button>
+        <div class="nav-section-label">Section C · Macro &amp; Stress</div>
+        <button class="nav-item" data-view="macros"><span class="nav-icon">🧩</span><span>Macro Engines</span><span class="badge">5 grp</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="research"><span class="nav-icon">🔬</span><span>Research Chat</span><span class="badge">φ1–5</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="inventor"><span class="nav-icon">⚙️</span><span>Inventor Chat</span><span class="badge">φ6–10</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="coder"><span class="nav-icon">💻</span><span>Coder Chat</span><span class="badge">φ11–15</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="deploy"><span class="nav-icon">🚀</span><span>Deploy Chat</span><span class="badge">φ16–20</span></button>
+        <button class="nav-item" data-view="stress"><span class="nav-icon">🧪</span><span>Sandbox Stress Test</span><span class="badge">25</span></button>
+        <button class="nav-item" data-view="vste"><span class="nav-icon">🧯</span><span>Virtual Stress Tester</span><span class="badge">VSTE</span></button>
+        <button class="nav-item" data-view="aegis"><span class="nav-icon">🛡️</span><span>AEGIS Security &amp; Operations</span><span class="badge">AEGIS Core</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item settings-nav-item" id="open-settings" type="button">
+          <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+        </button>
+        <div class="attestation-pill" id="attestation-status" title="NASE attestation freshness"><span class="dot"></span><span id="attestation-text">Δt fresh</span></div>
+      </div>
+    </aside>
+    <div class="stage">
+      <header class="topbar">
+        <button id="sidebar-toggle" class="icon-btn" aria-label="Open sidebar">☰</button>
+        <div class="topbar-title"><h1 id="view-title">NNACC</h1><p id="view-subtitle">Engine 25 · habitat-grounded · live FastAPI</p></div>
+        <div class="topbar-actions">
+          <span id="api-status" class="api-pill">API…</span>
+          <button type="button" id="run-aegis-sweep-top" class="aegis-btn ghost-btn">⚡ AEGIS</button>
+          <button id="export-md" class="ghost-btn" title="Export chat to Markdown">Export .md</button>
+          <button id="export-txt" class="ghost-btn" title="Export chat to plain text">Export .txt</button>
+        </div>
+      </header>
+      <main id="view-chat" class="view active">
+        <div class="chat-toolbar" id="chat-toolbar">
+          <select id="persona-select" aria-label="Persona"></select>
+        </div>
+        <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
+        <div id="chat-telemetry-strip" class="chat-telemetry-strip" hidden aria-live="polite"></div>
+        <div id="drop-zone" class="drop-zone">
+          <div class="drop-overlay" id="drop-overlay"><p>Drop files or photos into the vault</p></div>
+          <div class="composer-shell">
+            <div id="composer-chips" class="composer-chips" hidden></div>
+            <div class="composer-box">
+              <button type="button" id="plus-btn" class="composer-icon" aria-label="Add files, photos, skills">+</button>
+              <textarea id="composer-input" placeholder="Message Voltage Cipher…" rows="1" aria-label="Chat message"></textarea>
+              <select id="model-select" class="composer-model" aria-label="Model"></select>
+              <button type="button" id="mic-btn" class="composer-icon" aria-label="Voice dictation">🎤</button>
+              <button type="button" id="send-btn" class="send-fab" aria-label="Send">↑</button>
+            </div>
+            <div id="plus-menu" class="plus-menu" hidden>
+              <button type="button" class="plus-item" data-plus="file">📎 Attach file</button>
+              <button type="button" class="plus-item" data-plus="photo">📷 Photo / camera</button>
+              <div class="plus-label">Recent</div>
+              <div id="plus-recent"></div>
+              <div class="plus-label">Skills</div>
+              <button type="button" class="plus-item" data-skill="usse-stress">⚡ USSE Stress</button>
+              <button type="button" class="plus-item" data-skill="vste">🧯 Virtual Stress Tester</button>
+              <button type="button" class="plus-item" data-skill="studio">🎨 Creative Canvas</button>
+              <button type="button" class="plus-item" data-skill="oiav-vault">🔒 OIAV Seal</button>
+              <button type="button" class="plus-item" data-skill="aegis">🛡️ AEGIS</button>
+              <button type="button" class="plus-item" data-skill="macros">🧩 Macro Engines</button>
+              <div class="plus-label">Connectors</div>
+              <button type="button" class="plus-item" data-connector="api">🔗 FastAPI docs</button>
+              <button type="button" class="plus-item" data-connector="vault">📁 File Vault</button>
+              <button type="button" class="plus-item" data-connector="registry">📋 Engine Registry</button>
+            </div>
+          </div>
+          <input type="file" id="file-picker" accept="*/*" multiple hidden />
+          <input type="file" id="photo-picker" accept="image/*" capture="environment" hidden />
+        </div>
+      </main>
+      <main id="view-usse" class="view"><div class="panel"><h2>Engine 23 · USSE Stress Simulation Lab</h2><p class="muted">Upload or paste a game / physics / logic specification.</p><div id="usse-drop" class="drop-zone secondary"><p>Drop .md / .txt here or use the chat drop zone</p></div><pre id="usse-preview" class="code-block"></pre><button id="run-usse-btn" class="primary-btn" disabled>Run USSE Stress Test</button></div></main>
+      <main id="view-oiav" class="view"><div class="panel"><h2>Engine 24 · OIAV Asset Protection Vault</h2><p class="muted">Merkle-sealed immutable storage for proprietary designs and IP.</p><button id="seal-btn" class="primary-btn">Seal current chat transcript (OIAV)</button><pre id="oiav-log" class="code-block"></pre></div></main>
+      <main id="view-registry" class="view"><div class="panel"><h2>Engine Registry (1–25)</h2><ul id="engine-list" class="engine-list"></ul></div></main>
+      <main id="view-vault" class="view"><div class="panel vault-panel"><h2>File System / Vault</h2><p class="muted">Full file payloads for the active thread. Chat stream shows only compact badges.</p><div id="vault-file-list" class="vault-file-list"></div><p id="vault-empty" class="muted small" hidden>No files in this thread yet. Drop a file on the chat surface to store it.</p></div></main>
+      <main id="view-studio" class="view"><div class="studio-layout"><div class="studio-input-panel"><h2>Creative Canvas · Studio Prompt Suite</h2><p class="muted">Drop a song lyric sheet, music brief, app concept, or free-form idea. 25-engine validation, Canvas Mapper, 8K studio prompt.</p><div id="studio-drop" class="drop-zone studio-drop"><div class="drop-overlay"><p>Drop .md / .txt / lyrics / concept</p></div><textarea id="studio-input" class="studio-textarea" placeholder="Paste lyrics, BPM notes, app vision, or any creative concept here…" rows="8" aria-label="Studio concept input"></textarea></div><div class="studio-actions"><label class="file-picker-btn studio-file" title="Attach concept file">📎 Attach<input type="file" id="studio-file-picker" accept=".md,.txt,.json,text/plain,application/json" hidden /></label><button id="studio-validate-btn" class="primary-btn">Validate via 25 Engines & Map Canvas</button><button id="studio-copy-prompt-btn" class="ghost-btn" disabled>Copy 8K Studio Prompt</button></div></div><div class="studio-output-panel"><section class="studio-section"><h3>1 · Multi-Engine Validation</h3><div id="studio-validation" class="code-block studio-block">Awaiting concept…</div></section><section class="studio-section"><h3>2 · Dynamic Canvas Mapping Pipeline</h3><div id="studio-canvas-map" class="code-block studio-block">—</div></section><section class="studio-section"><h3>3 · 8K Studio Prompt (Media Architect)</h3><div id="studio-prompt" class="code-block studio-block prompt-block">—</div></section></div></div></main>
+      <main id="view-macros" class="view">
+        <div class="panel macro-panel">
+          <div class="panel-head-row">
+            <div>
+              <h2>Isolated Macro Engine Modules</h2>
+              <p class="muted">Five independent attestation groups mapped to φ₁–φ₂₅. Each card POSTs to the live Render API.</p>
+            </div>
+            <div class="panel-head-actions">
+              <span id="macro-backend-status" class="backend-status">Connecting…</span>
+              <button type="button" id="macro-refresh-btn" class="ghost-btn">Refresh registry</button>
+            </div>
+          </div>
+          <div id="macro-engine-grid" class="macro-engine-grid"></div>
+        </div>
+      </main>
+      <main id="view-stress" class="view">
+        <div class="panel stress-panel">
+          <h2>Sandbox Stress Test Engine</h2>
+          <p class="muted">Custom payloads against the 25-engine attestation surface. Watch S_attest and weighted sums evaluate in real time.</p>
+          <div class="stress-layout">
+            <div class="stress-console">
+              <label>Macro target
+                <select id="stress-macro-select">
+                  <option value="research">research (φ1–5)</option>
+                  <option value="inventor" selected>inventor (φ6–10)</option>
+                  <option value="coder">coder (φ11–15)</option>
+                  <option value="deploy">deploy (φ16–20)</option>
+                  <option value="chat">chat (φ21–25)</option>
+                </select>
+              </label>
+              <div class="stress-presets">
+                <button type="button" id="stress-preset-ok" class="ghost-btn">Preset: 400 lb (pass)</button>
+                <button type="button" id="stress-preset-fail" class="ghost-btn">Preset: 100 lb (fail)</button>
+              </div>
+              <label>JSON payload
+                <textarea id="stress-json-input" class="code-block stress-json" rows="10">{
+  "utility_mass_lb": 400,
+  "concept": "in-band utility module"
+}</textarea>
+              </label>
+              <button type="button" id="stress-run-btn" class="primary-btn">Run Stress Evaluation</button>
+            </div>
+            <div class="stress-live">
+              <h3>Live Telemetry Dashboard</h3>
+              <div id="stress-telemetry" class="stress-telemetry"></div>
+              <h3 class="mt">Raw response</h3>
+              <pre id="stress-raw-log" class="code-block">Awaiting evaluation…</pre>
+            </div>
+          </div>
+        </div>
+      </main>
+      <main id="view-engine-chat" class="view">
+        <div id="engine-chat-root" class="engine-chat-root"></div>
+      </main>
+      <main id="view-vste" class="view">
+        <div id="vste-root" class="vste-root"></div>
+      </main>
+      <main id="view-aegis" class="view aegis-nominal">
+        <div class="panel aegis-panel">
+          <div class="panel-head-row">
+            <div>
+              <h2>NASE-AEGIS · Security &amp; Operations</h2>
+              <p class="muted">25-engine vector health · continuous attestation · autonomous research repair</p>
+            </div>
+            <button type="button" class="aegis-btn primary-btn" id="run-aegis-sweep-panel">⚡ RUN AEGIS DIAGNOSTIC</button>
+          </div>
+          <div class="aegis-tabs">
+            <button type="button" class="aegis-tab-btn active" data-aegis-tab="health">Live Vector Health</button>
+            <button type="button" class="aegis-tab-btn" data-aegis-tab="console">Unified Report Console</button>
+            <button type="button" class="aegis-tab-btn" data-aegis-tab="fixes">Autonomous Research Fixes</button>
+            <button type="button" class="aegis-tab-btn" data-aegis-tab="settings">Notification Settings</button>
+          </div>
+          <div class="aegis-tab-panel active" data-aegis-tab="health">
+            <div class="aegis-gauge-row">
+              <div class="aegis-gauge">
+                <div class="aegis-gauge-label">H<sub>sys</sub>(t)</div>
+                <div class="aegis-gauge-value" id="aegis-hsys-value">—</div>
+                <div class="aegis-gauge-track"><div class="aegis-gauge-bar" id="aegis-hsys-bar"></div></div>
+              </div>
+              <div class="aegis-meta-cards">
+                <div class="aegis-meta-card"><span class="lbl">Threat</span><span id="aegis-threat">—</span></div>
+                <div class="aegis-meta-card mono"><span class="lbl">S_attest</span><span id="aegis-s-attest">—</span></div>
+              </div>
+            </div>
+            <h3 class="mt">φ₁–φ₂₅</h3>
+            <div id="aegis-phi-grid" class="aegis-phi-grid"></div>
+          </div>
+          <div class="aegis-tab-panel" data-aegis-tab="console">
+            <div id="aegis-log" class="aegis-log"></div>
+          </div>
+          <div class="aegis-tab-panel" data-aegis-tab="fixes">
+            <div id="aegis-patches" class="aegis-patches"></div>
+          </div>
+          <div class="aegis-tab-panel" data-aegis-tab="settings">
+            <label class="checkbox"><input type="checkbox" id="aegis-notify-enabled" checked /> Enable local notifications</label>
+            <label class="checkbox"><input type="checkbox" id="aegis-heartbeat-enabled" checked /> Nominal heartbeat notifications</label>
+            <label class="checkbox"><input type="checkbox" id="aegis-autorepair-enabled" checked /> Auto-dispatch research repair when H_sys &lt; 0.85</label>
+            <label>Sweep interval (seconds)
+              <input type="number" id="aegis-interval-sec" min="15" max="600" value="60" />
+            </label>
+            <p class="muted small">Notifications use the browser Notification API (same device). Multi-device VAPID push is not configured.</p>
+          </div>
+        </div>
+      </main>
+
+
+    </div>
+  </div>
+  <div id="settings-modal" class="modal" hidden><div class="modal-card"><header><h2>Settings & System Config</h2><button id="close-settings" class="icon-btn">✕</button></header><section><label>NASE Δt (seconds)<input type="number" id="setting-delta" value="30" min="5" max="120" /></label><label>Backend Remote URL (optional)<input type="url" id="setting-remote" value="https://nano-sandbox-api.onrender.com" placeholder="https://nano-sandbox-api.onrender.com" /></label><label class="checkbox"><input type="checkbox" id="setting-auto-usse" checked /> Auto-detect USSE candidates from dropped files</label><p class="muted small">All mutations still require a fresh attestation timestamp.</p></section><footer><button id="save-settings" class="primary-btn">Save</button></footer></div></div>
+  <div id="file-preview-modal" class="modal" hidden><div class="modal-card modal-wide"><header><h2 id="file-preview-title">File preview</h2><button id="close-file-preview" class="icon-btn">✕</button></header><pre id="file-preview-body" class="code-block file-preview-body"></pre><footer class="file-preview-footer"><button id="file-preview-to-vault" class="ghost-btn">Open in File Vault</button><button id="file-preview-copy" class="primary-btn">Copy text</button></footer></div></div>
+
+  <div id="diagnostic-modal" class="modal" hidden>
+    <div class="modal-card modal-wide diagnostic-card">
+      <header>
+        <h2>System Diagnostic & Security Report</h2>
+        <button id="close-diagnostic" class="icon-btn" aria-label="Close">✕</button>
+      </header>
+      <div class="diagnostic-summary">
+        <div class="diag-score">
+          <span class="diag-label">Composite S_health</span>
+          <span id="diag-health" class="diag-value">—</span>
+        </div>
+        <div class="diag-threat">
+          <span class="diag-label">Threat Level</span>
+          <span id="diag-threat" class="diag-pill">—</span>
+        </div>
+      </div>
+      <section>
+        <h3>Vector Breakdown Matrix</h3>
+        <table class="diag-table" id="diag-vector-table">
+          <thead><tr><th>Component</th><th>Score</th></tr></thead>
+          <tbody>
+            <tr><td>S_ui</td><td id="diag-s-ui">—</td></tr>
+            <tr><td>S_vault</td><td id="diag-s-vault">—</td></tr>
+            <tr><td>S_nase</td><td id="diag-s-nase">—</td></tr>
+            <tr><td>S_sec</td><td id="diag-s-sec">—</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h3>Storage Capacity (IndexedDB)</h3>
+        <pre id="diag-storage" class="code-block">—</pre>
+      </section>
+      <section>
+        <h3>Timestamped Audit Log</h3>
+        <pre id="diag-audit" class="code-block diag-audit">—</pre>
+      </section>
+      <footer class="file-preview-footer">
+        <button id="diag-copy-audit" class="primary-btn">Copy Audit Report</button>
+      </footer>
+    </div>
+  </div>
+
+    <script src="js/usse-bridge.js?v=unified-1.0"></script>
+  <script src="js/studio-engine.js?v=unified-1.0"></script>
+  <script src="js/vault-engine.js?v=unified-1.0"></script>
+  <script src="js/session-engine.js?v=unified-2.0"></script>
+  <script src="js/history-rail.js?v=unified-2.0"></script>
+  <script src="js/debug-security-engine.js?v=unified-1.0"></script>
+  <script src="js/codegen-utils.js?v=unified-1.0"></script>
+  <script src="js/chat-partition.js?v=unified-1.0"></script>
+  <script src="js/engine-chat.js?v=unified-1.0"></script>
+  <script src="js/virtual-stress-engine.js?v=unified-1.0"></script>
+  <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
+  <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
+  <script src="js/aegis-engine.js?v=unified-1.0"></script>
+  <script src="js/composer-bar.js?v=unified-2.0"></script>
+  <script src="js/ui-controller.js?v=unified-2.0"></script>
+</body>
+</html>

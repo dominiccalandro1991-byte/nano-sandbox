@@ -860,3 +860,46 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
 @media (max-width:768px){
   .history-rail{min-height:180px;flex-basis:38%}
 }
+
+/* —— Composer 2.0 (ChatGPT architecture, next-gen) —— */
+.composer-shell{position:relative;max-width:840px;margin:0 auto}
+.composer-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 8px}
+.scope-chip{border:1px solid rgba(61,139,253,.35);background:rgba(61,139,253,.12);color:var(--primary);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer}
+.composer-box{display:flex;align-items:flex-end;gap:6px;padding:8px;border:1px solid var(--border);border-radius:18px;background:var(--bg-elevated)}
+.composer-box textarea{flex:1;min-height:44px;max-height:160px;resize:none;border:none;background:transparent;color:var(--text);font:inherit;padding:10px 6px;outline:none}
+.composer-icon,.send-fab{
+  width:40px;height:40px;min-width:40px;border:none;border-radius:12px;cursor:pointer;
+  background:rgba(255,255,255,.05);color:var(--text);font-size:18px;font-weight:600;
+}
+.composer-icon:hover{background:rgba(255,255,255,.1)}
+.composer-icon.live{background:rgba(255,107,107,.25);color:var(--danger)}
+.send-fab{background:var(--primary);color:#fff;font-size:18px}
+.composer-model{max-width:160px;min-height:36px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;padding:4px 6px}
+.plus-menu{
+  position:absolute;left:0;bottom:calc(100% + 8px);z-index:30;
+  width:min(320px,92vw);max-height:min(60vh,420px);overflow:auto;
+  background:var(--bg-elevated);border:1px solid var(--border-strong);border-radius:14px;
+  padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.45);
+}
+.plus-menu[hidden]{display:none!important}
+.plus-item{display:block;width:100%;text-align:left;padding:10px 12px;min-height:40px;border:none;border-radius:8px;background:transparent;color:var(--text);cursor:pointer;font-size:13px}
+.plus-item:hover{background:rgba(255,255,255,.06)}
+.plus-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px 4px}
+
+/* Always-visible delete — never hover-only, never crushed */
+.session-item{overflow:visible!important;align-items:center!important;flex-wrap:nowrap!important}
+.session-trail{flex-direction:row!important;align-items:center;gap:4px!important}
+.session-icon-btn,.session-delete-btn{
+  opacity:1!important;visibility:visible!important;
+  min-width:44px;min-height:44px;font-size:12px;
+}
+.session-delete-btn{
+  border:1px solid rgba(255,107,107,.4)!important;
+  background:rgba(255,107,107,.12)!important;
+  color:var(--danger)!important;border-radius:8px;padding:0 10px;cursor:pointer;font-weight:600;
+}
+.session-item.confirm-delete{outline:1px solid var(--danger)}
+@media(max-width:768px){
+  .composer-model{display:none}
+  .session-trail .session-icon-btn:not(.session-delete-btn){display:none}
+}

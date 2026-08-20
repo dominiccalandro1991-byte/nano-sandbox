@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio · NNACC</title>
-  <link rel="stylesheet" href="css/styles.css?v=unified-1.1" />
+  <link rel="stylesheet" href="css/styles.css?v=unified-2.0" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -83,19 +83,40 @@
       <main id="view-chat" class="view active">
         <div class="chat-toolbar" id="chat-toolbar">
           <select id="persona-select" aria-label="Persona"></select>
-          <select id="model-select" aria-label="Model"></select>
         </div>
         <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
         <div id="chat-telemetry-strip" class="chat-telemetry-strip" hidden aria-live="polite"></div>
         <div id="drop-zone" class="drop-zone">
-          <div class="drop-overlay" id="drop-overlay"><p>Drop .md / .txt / .json to vault</p></div>
-          <div class="composer">
-            <textarea id="composer-input" placeholder="Message NNACC… or drop a file into the vault" rows="1" aria-label="Chat message"></textarea>
-            <div class="composer-actions">
-              <label class="file-picker-btn" title="Attach file to vault">📎<input type="file" id="file-picker" accept=".md,.txt,.json,text/plain,application/json" hidden /></label>
-              <button id="send-btn" class="primary-btn" aria-label="Send">Send</button>
+          <div class="drop-overlay" id="drop-overlay"><p>Drop files or photos into the vault</p></div>
+          <div class="composer-shell">
+            <div id="composer-chips" class="composer-chips" hidden></div>
+            <div class="composer-box">
+              <button type="button" id="plus-btn" class="composer-icon" aria-label="Add files, photos, skills">+</button>
+              <textarea id="composer-input" placeholder="Message Voltage Cipher…" rows="1" aria-label="Chat message"></textarea>
+              <select id="model-select" class="composer-model" aria-label="Model"></select>
+              <button type="button" id="mic-btn" class="composer-icon" aria-label="Voice dictation">🎤</button>
+              <button type="button" id="send-btn" class="send-fab" aria-label="Send">↑</button>
+            </div>
+            <div id="plus-menu" class="plus-menu" hidden>
+              <button type="button" class="plus-item" data-plus="file">📎 Attach file</button>
+              <button type="button" class="plus-item" data-plus="photo">📷 Photo / camera</button>
+              <div class="plus-label">Recent</div>
+              <div id="plus-recent"></div>
+              <div class="plus-label">Skills</div>
+              <button type="button" class="plus-item" data-skill="usse-stress">⚡ USSE Stress</button>
+              <button type="button" class="plus-item" data-skill="vste">🧯 Virtual Stress Tester</button>
+              <button type="button" class="plus-item" data-skill="studio">🎨 Creative Canvas</button>
+              <button type="button" class="plus-item" data-skill="oiav-vault">🔒 OIAV Seal</button>
+              <button type="button" class="plus-item" data-skill="aegis">🛡️ AEGIS</button>
+              <button type="button" class="plus-item" data-skill="macros">🧩 Macro Engines</button>
+              <div class="plus-label">Connectors</div>
+              <button type="button" class="plus-item" data-connector="api">🔗 FastAPI docs</button>
+              <button type="button" class="plus-item" data-connector="vault">📁 File Vault</button>
+              <button type="button" class="plus-item" data-connector="registry">📋 Engine Registry</button>
             </div>
           </div>
+          <input type="file" id="file-picker" accept="*/*" multiple hidden />
+          <input type="file" id="photo-picker" accept="image/*" capture="environment" hidden />
         </div>
       </main>
       <main id="view-usse" class="view"><div class="panel"><h2>Engine 23 · USSE Stress Simulation Lab</h2><p class="muted">Upload or paste a game / physics / logic specification.</p><div id="usse-drop" class="drop-zone secondary"><p>Drop .md / .txt here or use the chat drop zone</p></div><pre id="usse-preview" class="code-block"></pre><button id="run-usse-btn" class="primary-btn" disabled>Run USSE Stress Test</button></div></main>
@@ -259,8 +280,8 @@
     <script src="js/usse-bridge.js?v=unified-1.0"></script>
   <script src="js/studio-engine.js?v=unified-1.0"></script>
   <script src="js/vault-engine.js?v=unified-1.0"></script>
-  <script src="js/session-engine.js?v=unified-1.1"></script>
-  <script src="js/history-rail.js?v=unified-1.1"></script>
+  <script src="js/session-engine.js?v=unified-2.0"></script>
+  <script src="js/history-rail.js?v=unified-2.0"></script>
   <script src="js/debug-security-engine.js?v=unified-1.0"></script>
   <script src="js/codegen-utils.js?v=unified-1.0"></script>
   <script src="js/chat-partition.js?v=unified-1.0"></script>
@@ -269,6 +290,7 @@
   <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
   <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="js/aegis-engine.js?v=unified-1.0"></script>
-  <script src="js/ui-controller.js?v=unified-1.1"></script>
+  <script src="js/composer-bar.js?v=unified-2.0"></script>
+  <script src="js/ui-controller.js?v=unified-2.0"></script>
 </body>
 </html>
