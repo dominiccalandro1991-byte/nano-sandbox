@@ -171,6 +171,12 @@
       if (inp) inp.click();
       closePlus();
     });
+    var webBtn = document.querySelector('[data-plus="web"]');
+    if (webBtn) webBtn.addEventListener("click", function () {
+      var m = document.getElementById("mode-search");
+      if (m) { m.classList.add("on"); m.setAttribute("aria-pressed","true"); }
+      closePlus();
+    });
     document.querySelectorAll("[data-skill]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = btn.getAttribute("data-skill");

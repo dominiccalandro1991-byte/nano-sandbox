@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio · NNACC</title>
-  <link rel="stylesheet" href="css/styles.css?v=unified-2.0" />
+  <link rel="stylesheet" href="css/styles.css?v=unified-3.0" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -13,6 +13,16 @@
     <button type="button" id="dismiss-volatile-banner" class="icon-btn" aria-label="Dismiss">✕</button>
   </div>
 <div id="app" class="app">
+    <nav id="icon-rail" class="icon-rail" aria-label="Primary">
+      <button type="button" data-rail="new" title="New chat" aria-label="New chat">✎</button>
+      <button type="button" data-rail="chats" class="on" title="Chats" aria-label="Chat history">💬</button>
+      <button type="button" data-rail="search" title="Search chats" aria-label="Search">🔍</button>
+      <button type="button" data-rail="labs" title="Labs and engines" aria-label="Labs">🧪</button>
+      <button type="button" data-rail="vault" title="File vault" aria-label="Vault">📁</button>
+      <span class="rail-spacer"></span>
+      <button type="button" data-rail="aegis" title="AEGIS security" aria-label="AEGIS">🛡️</button>
+      <button type="button" data-rail="settings" title="Settings" aria-label="Settings">⚙️</button>
+    </nav>
     <aside id="sidebar" class="sidebar" aria-label="Global navigation">
       <div class="sidebar-header">
         <span class="logo">Voltage Cipher · NNACC</span>
@@ -22,9 +32,7 @@
         <button id="new-chat-btn" class="new-chat-btn" type="button" title="Start a new chat thread">
           <span>+ New Chat</span>
         </button>
-        <button id="run-aegis-sweep" class="aegis-btn self-test-btn" type="button" title="Run AEGIS diagnostic sweep">
-          <span>⚡ RUN AEGIS DIAGNOSTIC</span>
-        </button>
+        <button id="run-aegis-sweep" class="aegis-btn self-test-btn" type="button" hidden title="Run AEGIS diagnostic sweep">AEGIS</button>
       </div>
       <section id="history-rail" class="history-rail" aria-label="Chat history">
         <div class="history-rail-head">
@@ -84,6 +92,16 @@
         <div class="chat-toolbar" id="chat-toolbar">
           <select id="persona-select" aria-label="Persona"></select>
         </div>
+                <div id="empty-hero" class="empty-hero">
+          <p class="empty-kicker">Voltage Cipher</p>
+          <h2>What&rsquo;s on your mind?</h2>
+          <div class="suggest-row">
+            <button type="button" class="suggest-chip" data-suggest="stress">Virtual Stress Tester</button>
+            <button type="button" class="suggest-chip" data-suggest="studio">Create image / canvas</button>
+            <button type="button" class="suggest-chip" data-suggest="research">Deep research</button>
+            <button type="button" class="suggest-chip" data-suggest="files">Attach files</button>
+          </div>
+        </div>
         <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
         <div id="chat-telemetry-strip" class="chat-telemetry-strip" hidden aria-live="polite"></div>
         <div id="drop-zone" class="drop-zone">
@@ -92,14 +110,17 @@
             <div id="composer-chips" class="composer-chips" hidden></div>
             <div class="composer-box">
               <button type="button" id="plus-btn" class="composer-icon" aria-label="Add files, photos, skills">+</button>
-              <textarea id="composer-input" placeholder="Message Voltage Cipher…" rows="1" aria-label="Chat message"></textarea>
+              <button type="button" id="mode-search" class="mode-chip" aria-pressed="false">Search</button>
+              <button type="button" id="mode-reason" class="mode-chip" aria-pressed="false">Reason</button>
+              <textarea id="composer-input" placeholder="Ask anything" rows="1" aria-label="Chat message"></textarea>
               <select id="model-select" class="composer-model" aria-label="Model"></select>
               <button type="button" id="mic-btn" class="composer-icon" aria-label="Voice dictation">🎤</button>
               <button type="button" id="send-btn" class="send-fab" aria-label="Send">↑</button>
             </div>
             <div id="plus-menu" class="plus-menu" hidden>
-              <button type="button" class="plus-item" data-plus="file">📎 Attach file</button>
-              <button type="button" class="plus-item" data-plus="photo">📷 Photo / camera</button>
+              <button type="button" class="plus-item" data-plus="file">📎 Add files or photos</button>
+              <button type="button" class="plus-item" data-plus="photo">📷 Take a screenshot / camera</button>
+              <button type="button" class="plus-item" data-plus="web">🌐 Web search</button>
               <div class="plus-label">Recent</div>
               <div id="plus-recent"></div>
               <div class="plus-label">Skills</div>
@@ -232,7 +253,58 @@
 
     </div>
   </div>
-  <div id="settings-modal" class="modal" hidden><div class="modal-card"><header><h2>Settings & System Config</h2><button id="close-settings" class="icon-btn">✕</button></header><section><label>NASE Δt (seconds)<input type="number" id="setting-delta" value="30" min="5" max="120" /></label><label>Backend Remote URL (optional)<input type="url" id="setting-remote" value="https://nano-sandbox-api.onrender.com" placeholder="https://nano-sandbox-api.onrender.com" /></label><label class="checkbox"><input type="checkbox" id="setting-auto-usse" checked /> Auto-detect USSE candidates from dropped files</label><p class="muted small">All mutations still require a fresh attestation timestamp.</p></section><footer><button id="save-settings" class="primary-btn">Save</button></footer></div></div>
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card settings-shell">
+      <nav class="settings-nav" aria-label="Settings">
+        <button type="button" class="set-tab on" data-set="general">General</button>
+        <button type="button" class="set-tab" data-set="personalization">Personalization</button>
+        <button type="button" class="set-tab" data-set="appearance">Appearance</button>
+        <button type="button" class="set-tab" data-set="behavior">Behavior</button>
+        <button type="button" class="set-tab" data-set="data">Data controls</button>
+        <button type="button" class="set-tab" data-set="connectors">Connectors</button>
+        <button type="button" class="set-tab" data-set="security">Security</button>
+      </nav>
+      <div class="settings-body">
+        <header><h2>Settings</h2><button id="close-settings" class="icon-btn">✕</button></header>
+        <section class="set-pane on" data-pane="general">
+          <label>Backend Remote URL<input type="url" id="setting-remote" value="https://nano-sandbox-api.onrender.com" /></label>
+          <label>Spoken language<input type="text" id="setting-lang" value="English" /></label>
+        </section>
+        <section class="set-pane" data-pane="personalization">
+          <label>What should we call you?<input type="text" id="setting-name" placeholder="Your name" /></label>
+          <label>What do you do?<input type="text" id="setting-role" placeholder="Engineer, founder, student…" /></label>
+          <label>Custom instructions<textarea id="setting-instructions" rows="4" placeholder="How Voltage Cipher should respond"></textarea></label>
+          <p class="muted small">Traits: Concise · Formal · Socratic · Comprehensive</p>
+        </section>
+        <section class="set-pane" data-pane="appearance">
+          <label>Accent<input type="color" id="setting-accent" value="#3d8bfd" /></label>
+          <p class="muted small">Dark habitat theme is the default. Accent tints the send button and active chat.</p>
+        </section>
+        <section class="set-pane" data-pane="behavior">
+          <label>NASE Δt (seconds)<input type="number" id="setting-delta" value="30" min="5" max="120" /></label>
+          <label class="checkbox"><input type="checkbox" id="setting-auto-usse" checked /> Auto-detect USSE candidates from dropped files</label>
+        </section>
+        <section class="set-pane" data-pane="data">
+          <p>Chats live on this device (localStorage + IndexedDB vault). Nothing is uploaded unless you send a message to FastAPI.</p>
+          <button type="button" id="clear-history-btn" class="ghost-btn">Clear all chats</button>
+        </section>
+        <section class="set-pane" data-pane="connectors">
+          <p>Skills and connectors also live in the + menu, like Claude.</p>
+          <ul class="connector-list">
+            <li>FastAPI backend — live</li>
+            <li>File Vault — IndexedDB</li>
+            <li>USSE / OIAV / VSTE / AEGIS — engines</li>
+            <li>OpenRouter models — /llm/chat</li>
+          </ul>
+        </section>
+        <section class="set-pane" data-pane="security">
+          <p>NASE attestation gates engine jobs. Δt freshness shows in the rail.</p>
+          <div class="attestation-pill" id="settings-attest"><span class="dot"></span><span>Δt linked to live session</span></div>
+        </section>
+        <footer><button id="save-settings" class="primary-btn">Save</button></footer>
+      </div>
+    </div>
+  </div>
   <div id="file-preview-modal" class="modal" hidden><div class="modal-card modal-wide"><header><h2 id="file-preview-title">File preview</h2><button id="close-file-preview" class="icon-btn">✕</button></header><pre id="file-preview-body" class="code-block file-preview-body"></pre><footer class="file-preview-footer"><button id="file-preview-to-vault" class="ghost-btn">Open in File Vault</button><button id="file-preview-copy" class="primary-btn">Copy text</button></footer></div></div>
 
   <div id="diagnostic-modal" class="modal" hidden>
@@ -281,7 +353,7 @@
   <script src="js/studio-engine.js?v=unified-1.0"></script>
   <script src="js/vault-engine.js?v=unified-1.0"></script>
   <script src="js/session-engine.js?v=unified-2.0"></script>
-  <script src="js/history-rail.js?v=unified-2.0"></script>
+  <script src="js/history-rail.js?v=unified-3.0"></script>
   <script src="js/debug-security-engine.js?v=unified-1.0"></script>
   <script src="js/codegen-utils.js?v=unified-1.0"></script>
   <script src="js/chat-partition.js?v=unified-1.0"></script>
@@ -290,7 +362,8 @@
   <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
   <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="js/aegis-engine.js?v=unified-1.0"></script>
-  <script src="js/composer-bar.js?v=unified-2.0"></script>
-  <script src="js/ui-controller.js?v=unified-2.0"></script>
+  <script src="js/composer-bar.js?v=unified-3.0"></script>
+  <script src="js/shell-layout.js?v=unified-3.0"></script>
+  <script src="js/ui-controller.js?v=unified-3.0"></script>
 </body>
 </html>
