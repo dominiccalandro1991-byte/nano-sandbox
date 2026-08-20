@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
-  <title>Nano-Sandbox V2 · NNACC + Macro Engines</title>
-  <link rel="stylesheet" href="css/styles.css?v=nnacc-v2.12" />
+  <title>Voltage Cipher Studio · NNACC</title>
+  <link rel="stylesheet" href="css/styles.css?v=unified-1.0" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -15,7 +15,7 @@
 <div id="app" class="app">
     <aside id="sidebar" class="sidebar" aria-label="Global navigation">
       <div class="sidebar-header">
-        <span class="logo">Nano-Sandbox V2</span>
+        <span class="logo">Voltage Cipher · NNACC</span>
         <button id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
       </div>
       <div class="sidebar-actions">
@@ -39,7 +39,12 @@
         <button class="nav-item" data-view="studio"><span class="nav-icon">🎨</span><span>Creative Canvas</span><span class="badge">GEN</span></button>
         <div class="nav-section-label">Section C · Macro &amp; Stress</div>
         <button class="nav-item" data-view="macros"><span class="nav-icon">🧩</span><span>Macro Engines</span><span class="badge">5 grp</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="research"><span class="nav-icon">🔬</span><span>Research Chat</span><span class="badge">φ1–5</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="inventor"><span class="nav-icon">⚙️</span><span>Inventor Chat</span><span class="badge">φ6–10</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="coder"><span class="nav-icon">💻</span><span>Coder Chat</span><span class="badge">φ11–15</span></button>
+        <button class="nav-item" data-view="engine-chat" data-macro="deploy"><span class="nav-icon">🚀</span><span>Deploy Chat</span><span class="badge">φ16–20</span></button>
         <button class="nav-item" data-view="stress"><span class="nav-icon">🧪</span><span>Sandbox Stress Test</span><span class="badge">25</span></button>
+        <button class="nav-item" data-view="vste"><span class="nav-icon">🧯</span><span>Virtual Stress Tester</span><span class="badge">VSTE</span></button>
         <button class="nav-item" data-view="aegis"><span class="nav-icon">🛡️</span><span>AEGIS Security &amp; Operations</span><span class="badge">AEGIS Core</span></button>
       </nav>
       <div class="sidebar-footer">
@@ -52,13 +57,19 @@
     <div class="stage">
       <header class="topbar">
         <button id="sidebar-toggle" class="icon-btn" aria-label="Open sidebar">☰</button>
-        <div class="topbar-title"><h1 id="view-title">NNACC</h1><p id="view-subtitle">Engine 25 · habitat-grounded · NASE-gated</p></div>
-        <div class="topbar-actions"><button type="button" id="run-aegis-sweep-top" class="aegis-btn ghost-btn">⚡ AEGIS</button>
+        <div class="topbar-title"><h1 id="view-title">NNACC</h1><p id="view-subtitle">Engine 25 · habitat-grounded · live FastAPI</p></div>
+        <div class="topbar-actions">
+          <span id="api-status" class="api-pill">API…</span>
+          <button type="button" id="run-aegis-sweep-top" class="aegis-btn ghost-btn">⚡ AEGIS</button>
           <button id="export-md" class="ghost-btn" title="Export chat to Markdown">Export .md</button>
           <button id="export-txt" class="ghost-btn" title="Export chat to plain text">Export .txt</button>
         </div>
       </header>
       <main id="view-chat" class="view active">
+        <div class="chat-toolbar" id="chat-toolbar">
+          <select id="persona-select" aria-label="Persona"></select>
+          <select id="model-select" aria-label="Model"></select>
+        </div>
         <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
         <div id="chat-telemetry-strip" class="chat-telemetry-strip" hidden aria-live="polite"></div>
         <div id="drop-zone" class="drop-zone">
@@ -127,6 +138,12 @@
             </div>
           </div>
         </div>
+      </main>
+      <main id="view-engine-chat" class="view">
+        <div id="engine-chat-root" class="engine-chat-root"></div>
+      </main>
+      <main id="view-vste" class="view">
+        <div id="vste-root" class="vste-root"></div>
       </main>
       <main id="view-aegis" class="view aegis-nominal">
         <div class="panel aegis-panel">
@@ -224,13 +241,18 @@
     </div>
   </div>
 
-    <script src="js/usse-bridge.js?v=nnacc-v2.12"></script>
-  <script src="js/studio-engine.js?v=nnacc-v2.12"></script>
-  <script src="js/vault-engine.js?v=nnacc-v2.12"></script>
-  <script src="js/session-engine.js?v=nnacc-v2.12"></script>
-  <script src="js/debug-security-engine.js?v=nnacc-v2.12"></script>
-  <script src="js/macro-engine-ui.js?v=nnacc-v2.12"></script>
-  <script src="js/aegis-engine.js?v=nnacc-v2.12"></script>
-  <script src="js/ui-controller.js?v=nnacc-v2.12"></script>
+    <script src="js/usse-bridge.js?v=unified-1.0"></script>
+  <script src="js/studio-engine.js?v=unified-1.0"></script>
+  <script src="js/vault-engine.js?v=unified-1.0"></script>
+  <script src="js/session-engine.js?v=unified-1.0"></script>
+  <script src="js/debug-security-engine.js?v=unified-1.0"></script>
+  <script src="js/codegen-utils.js?v=unified-1.0"></script>
+  <script src="js/chat-partition.js?v=unified-1.0"></script>
+  <script src="js/engine-chat.js?v=unified-1.0"></script>
+  <script src="js/virtual-stress-engine.js?v=unified-1.0"></script>
+  <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
+  <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
+  <script src="js/aegis-engine.js?v=unified-1.0"></script>
+  <script src="js/ui-controller.js?v=unified-1.0"></script>
 </body>
 </html>
