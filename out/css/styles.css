@@ -1046,7 +1046,7 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
   display:none;
   position:fixed;
   inset:0;
-  background:rgba(5,8,12,.62);
+  background:rgba(5,8,12,.92);
   z-index:50;
 }
 .sidebar-scrim[hidden]{display:none !important}
