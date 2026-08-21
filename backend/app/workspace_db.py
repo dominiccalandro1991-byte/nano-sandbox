@@ -87,6 +87,9 @@ def init_workspace(database_url: str) -> None:
                     """
                 )
             )
+            from app.rls import apply_rls as _apply_rls
+
+            _apply_rls(conn, _is_pg)
 
 
 def _prefix() -> str:

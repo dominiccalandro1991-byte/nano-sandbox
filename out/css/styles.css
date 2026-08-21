@@ -1189,3 +1189,6 @@ body.temporary-chat .history-rail{opacity:.7}
 .shortcut-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:8px 0 0;padding:0;font-size:13px}
 .shortcut-list li{display:flex;justify-content:space-between;gap:12px;align-items:center}
 kbd{font-family:var(--font);font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.04)}
+
+#proofpatch-diff{width:100%;min-height:120px;margin-top:8px}
+#proofpatch-log{max-height:240px;overflow:auto;margin-top:10px}

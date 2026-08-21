@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     supabase_project_ref: str = SUPABASE_PROJECT_REF
     supabase_host: str = SUPABASE_HOST
 
+    proofpatch_enabled: bool = True
+    proofpatch_allowed_repos: str = "dominiccalandro1991-byte/nano-sandbox"
+    proofpatch_timeout_seconds: float = 90.0
+
 
 def get_settings() -> Settings:
     return Settings()
