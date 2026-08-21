@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio · NNACC</title>
-  <link rel="stylesheet" href="css/styles.css?v=unified-3.2" />
+  <link rel="stylesheet" href="css/styles.css?v=block-a" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -84,12 +84,21 @@
         <div class="topbar-title"><h1 id="view-title">NNACC</h1><p id="view-subtitle">Engine 25 · habitat-grounded · live FastAPI</p></div>
         <div class="topbar-actions">
           <span id="api-status" class="api-pill">API…</span>
+          <button type="button" id="temp-chat-btn" class="ghost-btn" title="Start a chat that is never saved">Temporary</button>
+          <button type="button" id="share-chat-btn" class="ghost-btn" title="Share this thread">Share</button>
           <button type="button" id="run-aegis-sweep-top" class="aegis-btn ghost-btn">⚡ AEGIS</button>
           <button id="export-md" class="ghost-btn" title="Export chat to Markdown">Export .md</button>
           <button id="export-txt" class="ghost-btn" title="Export chat to plain text">Export .txt</button>
         </div>
       </header>
       <main id="view-chat" class="view active">
+        <div id="temp-banner" class="temp-banner" hidden>
+          This is a <strong>temporary chat</strong>. It is not written to history, localStorage, or Supabase. Refreshing forgets it.
+          <button type="button" id="exit-temp-btn" class="ghost-btn">Save to history</button>
+        </div>
+        <div id="share-banner" class="share-banner" hidden>
+          Shared snapshot · <strong>read only</strong>
+        </div>
         <div class="chat-toolbar" id="chat-toolbar">
           <select id="persona-select" aria-label="Persona"></select>
         </div>
@@ -383,7 +392,18 @@
       </div>
     </div>
   </div>
-  <div id="file-preview-modal" class="modal" hidden><div class="modal-card modal-wide"><header><h2 id="file-preview-title">File preview</h2><button id="close-file-preview" class="icon-btn">✕</button></header><pre id="file-preview-body" class="code-block file-preview-body"></pre><footer class="file-preview-footer"><button id="file-preview-to-vault" class="ghost-btn">Open in File Vault</button><button id="file-preview-copy" class="primary-btn">Copy text</button></footer></div></div>
+  <div id="share-modal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>Share chat</h2><button type="button" id="close-share" class="icon-btn" aria-label="Close">✕</button></header>
+      <p class="muted small">Anyone with the link can view a snapshot of this thread. The snapshot expires in 7 days and is not stored in Supabase.</p>
+      <label>Share link<input type="text" id="share-url" readonly /></label>
+      <footer class="file-preview-footer">
+        <button type="button" id="copy-share-md" class="ghost-btn">Copy transcript</button>
+        <button type="button" id="copy-share-link" class="primary-btn">Copy link</button>
+      </footer>
+    </div>
+  </div>
+<div class="modal-card modal-wide"><header><h2 id="file-preview-title">File preview</h2><button id="close-file-preview" class="icon-btn">✕</button></header><pre id="file-preview-body" class="code-block file-preview-body"></pre><footer class="file-preview-footer"><button id="file-preview-to-vault" class="ghost-btn">Open in File Vault</button><button id="file-preview-copy" class="primary-btn">Copy text</button></footer></div></div>
 
   <div id="diagnostic-modal" class="modal" hidden>
     <div class="modal-card modal-wide diagnostic-card">
@@ -430,7 +450,7 @@
     <script src="js/usse-bridge.js?v=unified-1.0"></script>
   <script src="js/studio-engine.js?v=unified-1.0"></script>
   <script src="js/vault-engine.js?v=unified-1.0"></script>
-  <script src="js/session-engine.js?v=unified-2.0"></script>
+  <script src="js/session-engine.js?v=block-a"></script>
   <script src="js/history-rail.js?v=unified-3.0"></script>
   <script src="js/debug-security-engine.js?v=unified-1.0"></script>
   <script src="js/codegen-utils.js?v=unified-1.0"></script>
@@ -441,7 +461,8 @@
   <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="js/aegis-engine.js?v=unified-1.0"></script>
   <script src="js/composer-bar.js?v=unified-3.0"></script>
-  <script src="js/shell-layout.js?v=unified-3.2"></script>
-  <script src="js/ui-controller.js?v=unified-3.0"></script>
+  <script src="js/shell-layout.js?v=block-a"></script>
+  <script src="js/chat-screen.js?v=block-a"></script>
+  <script src="js/ui-controller.js?v=block-a"></script>
 </body>
 </html>

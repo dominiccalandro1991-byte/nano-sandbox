@@ -48,7 +48,7 @@
     var view = $("view-chat");
     var list = $("message-list");
     if (!view) return;
-    var n = list ? list.querySelectorAll(".msg").length : 0;
+    var n = list ? list.querySelectorAll(".msg.user, .msg.assistant, .msg.file-badge-msg").length : 0;
     view.classList.toggle("has-messages", n > 0);
   }
 
@@ -286,6 +286,10 @@
   }
 
   function attachMessageActions(el, msg) {
+    if (global.ChatScreen && global.ChatScreen.attachMessageActions) {
+      global.ChatScreen.attachMessageActions(el, msg);
+      return;
+    }
     if (!el || !msg || msg.role !== "assistant") return;
     if (el.querySelector(".msg-actions")) return;
     var bar = document.createElement("div");

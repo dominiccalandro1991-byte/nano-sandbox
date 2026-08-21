@@ -24,7 +24,7 @@
 
   const INDEX_KEY = "nnacc_session_index";
   const ACTIVE_KEY = "nnacc_active_session";
-  const PREFIX = "nnacc_session_";
+  const TEMP_MEM = {};
 
   function now() {
     return Date.now();
@@ -54,6 +54,7 @@
   }
 
   function readSession(id) {
+    if (id && TEMP_MEM[id]) return TEMP_MEM[id];
     try {
       const raw = localStorage.getItem(id);
       if (!raw) return null;
@@ -69,8 +70,12 @@
    */
   function writeSession(session) {
     if (!session || !session.id) return false;
+    session.updatedAt = now();
+    if (session.temporary) {
+      TEMP_MEM[session.id] = session;
+      return true;
+    }
     try {
-      session.updatedAt = now();
       // Shallow clone files without full text for LS
       const toStore = Object.assign({}, session);
       if (Array.isArray(session.files)) {
@@ -138,14 +143,18 @@
       messages: [],
       files: [],
       pendingUssePayload: null,
+      temporary: !!(opts && opts.temporary),
     };
     writeSession(session);
-    setActiveSessionId(id);
+    if (!session.temporary) setActiveSessionId(id);
+    else setActiveSessionId(null);
     return session;
   }
 
   function listSessions() {
-    var list = readIndex();
+    var list = readIndex().filter(function (e) {
+      return !e.temporary;
+    });
     list.sort(function (a, b) {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
       return (b.updatedAt || 0) - (a.updatedAt || 0);
@@ -212,6 +221,7 @@
   }
 
   function deleteSession(id) {
+    delete TEMP_MEM[id];
     try {
       localStorage.removeItem(id);
     } catch {
@@ -338,6 +348,14 @@
     }
   }
 
+  function persistToHistory(session) {
+    if (!session) return false;
+    session.temporary = false;
+    delete TEMP_MEM[session.id];
+    setActiveSessionId(session.id);
+    return writeSession(session);
+  }
+
   global.SessionEngine = {
     createSession: createSession,
     listSessions: listSessions,
@@ -356,6 +374,7 @@
     getFileAsync: getFileAsync,
     listFiles: listFiles,
     removeFile: removeFile,
+    persistToHistory: persistToHistory,
     PREFIX: PREFIX,
   };
 })(typeof window !== "undefined" ? window : globalThis);
