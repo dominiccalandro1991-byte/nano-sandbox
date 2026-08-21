@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio · NNACC</title>
-  <link rel="stylesheet" href="css/styles.css?v=block-c" />
+  <link rel="stylesheet" href="css/styles.css?v=block-d" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -21,6 +21,7 @@
       <button type="button" data-rail="vault" title="File vault" aria-label="Vault">📁</button>
       <span class="rail-spacer"></span>
       <button type="button" data-rail="aegis" title="AEGIS security" aria-label="AEGIS">🛡️</button>
+      <button type="button" id="account-rail-btn" data-rail="account" title="Account" aria-label="Account"><span class="account-av">?</span></button>
       <button type="button" data-rail="settings" title="Settings" aria-label="Settings">⚙️</button>
     </nav>
     <aside id="sidebar" class="sidebar" aria-label="Global navigation">
@@ -286,10 +287,13 @@
     <div class="modal-card settings-shell">
       <nav class="settings-nav" aria-label="Settings">
         <button type="button" class="set-tab on" data-set="general">General</button>
+        <button type="button" class="set-tab" data-set="account">Account</button>
         <button type="button" class="set-tab" data-set="api">API & keys</button>
         <button type="button" class="set-tab" data-set="personalization">Personalization</button>
+        <button type="button" class="set-tab" data-set="memory">Memory</button>
         <button type="button" class="set-tab" data-set="appearance">Appearance</button>
         <button type="button" class="set-tab" data-set="behavior">Behavior</button>
+        <button type="button" class="set-tab" data-set="shortcuts">Shortcuts</button>
         <button type="button" class="set-tab" data-set="data">Data controls</button>
         <button type="button" class="set-tab" data-set="connectors">Connectors</button>
         <button type="button" class="set-tab" data-set="security">Security</button>
@@ -319,15 +323,28 @@
             </div>
             <a class="set-link" id="api-docs-link" href="https://nano-sandbox-api.onrender.com/docs" target="_blank" rel="noopener">Open API docs</a>
           </article>
-          <article class="set-card">
+          <article class="set-card set-card-api">
             <h3>Provider API key</h3>
-            <p class="set-help">OpenRouter / xAI keys stay on the FastAPI server (Render env). This browser never stores a provider secret. If chat models fail, the key is missing on the host — not here.</p>
-            <div class="set-status-row"><span class="set-pill">Key location</span><span>Render · OPENROUTER_API_KEY</span></div>
+            <p class="set-help">Paste your OpenRouter key. It is wrapped on this device and, when signed in, stored as ciphertext in <code>project_nano_sandbox.user_settings</code>. Never logged. Optional: Render can keep a host key instead.</p>
+            <input type="password" id="setting-api-key" autocomplete="off" placeholder="sk-or-…" />
+            <div class="set-card-actions">
+              <button type="button" id="save-api-key-btn" class="primary-btn">Save key</button>
+              <button type="button" id="clear-api-key-btn" class="ghost-btn">Clear</button>
+              <span id="api-key-status" class="set-status">Not set</span>
+            </div>
           </article>
           <article class="set-card">
             <h3>LLM route</h3>
             <p class="set-help">Chat goes to <code>POST /llm/chat</code> on the backend URL above. Model list is loaded from <code>GET /llm/models</code>.</p>
             <div class="set-status-row"><span class="set-pill">Route</span><span>/llm/chat</span></div>
+          </article>
+        </section>
+        <section class="set-pane" data-pane="account">
+          <article class="set-card">
+            <h3>Account</h3>
+            <p class="set-help" id="setting-account-status">Signed out — chats stay on this device until you sign in.</p>
+            <p id="account-rail-label" class="muted small"></p>
+            <button type="button" id="logout-btn" class="ghost-btn" hidden>Log out</button>
           </article>
         </section>
         <section class="set-pane" data-pane="personalization">
@@ -341,7 +358,7 @@
           </article>
           <article class="set-card">
             <h3>Response traits</h3>
-            <p class="set-help">Tap to add. Saved into custom instructions.</p>
+            <p class="set-help">Saved as their own settings array — not mixed into custom instructions.</p>
             <div class="trait-row" id="trait-row">
               <button type="button" class="trait-chip" data-trait="Concise">Concise</button>
               <button type="button" class="trait-chip" data-trait="Formal">Formal</button>
@@ -352,6 +369,15 @@
           <article class="set-card">
             <h3>Custom instructions</h3>
             <textarea id="setting-instructions" rows="4" placeholder="How Voltage Cipher should respond"></textarea>
+          </article>
+        </section>
+        <section class="set-pane" data-pane="memory">
+          <article class="set-card">
+            <h3>Memory</h3>
+            <p class="set-help">Facts injected into every chat. Stored in user_settings.memory when signed in.</p>
+            <input type="text" id="setting-memory" placeholder="e.g. Prefers short answers, works in Kansas City" />
+            <div class="set-card-actions"><button type="button" id="add-memory-btn" class="primary-btn">Add memory</button></div>
+            <div id="memory-list" class="memory-list"></div>
           </article>
         </section>
         <section class="set-pane" data-pane="appearance">
@@ -376,6 +402,19 @@
             <h3>Auto-detect USSE specs</h3>
             <p class="set-help">When a dropped file looks like a physics/spec document, prepare Engine 23.</p>
             <label class="checkbox"><input type="checkbox" id="setting-auto-usse" checked /> Enable auto-USSE</label>
+          </article>
+        </section>
+        <section class="set-pane" data-pane="shortcuts">
+          <article class="set-card">
+            <h3>Keyboard shortcuts</h3>
+            <ul class="shortcut-list">
+              <li><kbd>Ctrl/⌘ K</kbd> Focus composer</li>
+              <li><kbd>Ctrl/⌘ Shift O</kbd> New chat</li>
+              <li><kbd>Ctrl/⌘ Shift ;</kbd> Temporary chat</li>
+              <li><kbd>Ctrl/⌘ /</kbd> This list</li>
+              <li><kbd>/</kbd> Search chats</li>
+              <li><kbd>Esc</kbd> Close dialogs</li>
+            </ul>
           </article>
         </section>
         <section class="set-pane" data-pane="data">
@@ -411,7 +450,32 @@
       </div>
     </div>
   </div>
-  <div id="share-modal" class="modal" hidden>
+  <div id="account-modal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>Sign in</h2><button type="button" id="close-account" class="icon-btn" aria-label="Close">✕</button></header>
+      <label>Display name<input type="text" id="account-name" autocomplete="nickname" /></label>
+      <label>Email<input type="email" id="account-email" autocomplete="username" /></label>
+      <label>Password (8+)<input type="password" id="account-password" autocomplete="current-password" /></label>
+      <footer class="file-preview-footer">
+        <button type="button" id="account-register-btn" class="ghost-btn">Create account</button>
+        <button type="button" id="account-login-btn" class="primary-btn">Sign in</button>
+      </footer>
+    </div>
+  </div>
+  <div id="shortcuts-modal" class="modal" hidden>
+    <div class="modal-card">
+      <header><h2>Shortcuts</h2><button type="button" id="close-shortcuts" class="icon-btn" aria-label="Close">✕</button></header>
+      <ul class="shortcut-list">
+        <li><kbd>Ctrl/⌘ K</kbd> Focus composer</li>
+        <li><kbd>Ctrl/⌘ Shift O</kbd> New chat</li>
+        <li><kbd>Ctrl/⌘ Shift ;</kbd> Temporary chat</li>
+        <li><kbd>Ctrl/⌘ /</kbd> Shortcuts</li>
+        <li><kbd>/</kbd> Search chats</li>
+        <li><kbd>Esc</kbd> Close</li>
+      </ul>
+    </div>
+  </div>
+
     <div class="modal-card">
       <header><h2>Share chat</h2><button type="button" id="close-share" class="icon-btn" aria-label="Close">✕</button></header>
       <p class="muted small">Anyone with the link can view a snapshot of this thread. The snapshot expires in 7 days and is not stored in Supabase.</p>
@@ -476,15 +540,17 @@
   <script src="js/history-rail.js?v=block-c"></script>
   <script src="js/debug-security-engine.js?v=unified-1.0"></script>
   <script src="js/codegen-utils.js?v=unified-1.0"></script>
-  <script src="js/chat-partition.js?v=unified-1.0"></script>
+  <script src="js/chat-partition.js?v=block-d"></script>
   <script src="js/engine-chat.js?v=unified-1.0"></script>
   <script src="js/virtual-stress-engine.js?v=unified-1.0"></script>
   <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
   <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="js/aegis-engine.js?v=unified-1.0"></script>
   <script src="js/composer-bar.js?v=block-b"></script>
-  <script src="js/shell-layout.js?v=block-a"></script>
+  <script src="js/shell-layout.js?v=block-d"></script>
   <script src="js/chat-screen.js?v=block-a"></script>
-  <script src="js/ui-controller.js?v=block-c"></script>
+  <script src="js/account.js?v=block-d"></script>
+  <script src="js/shortcuts.js?v=block-d"></script>
+  <script src="js/ui-controller.js?v=block-d"></script>
 </body>
 </html>

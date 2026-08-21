@@ -125,19 +125,6 @@
         if (docs) docs.href = remoteUrl() + "/docs";
       });
     }
-    document.querySelectorAll(".trait-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        chip.classList.toggle("on");
-        var box = $("setting-instructions");
-        if (!box) return;
-        var traits = [];
-        document.querySelectorAll(".trait-chip.on").forEach(function (c) {
-          traits.push(c.getAttribute("data-trait"));
-        });
-        var body = box.value.replace(/\n?Traits:.*$/m, "").trim();
-        box.value = body + (traits.length ? "\nTraits: " + traits.join(", ") : "");
-      });
-    });
     var aegis = $("settings-open-aegis");
     if (aegis) {
       aegis.addEventListener("click", function () {
@@ -208,6 +195,9 @@
       if (which === "settings") {
         var sm = $("settings-modal");
         if (sm) sm.hidden = false;
+        return;
+      }
+      if (which === "account") {
         return;
       }
       if (which === "vault") {

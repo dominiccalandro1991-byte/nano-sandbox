@@ -59,6 +59,22 @@
       });
   }
 
+  function chatHeaders(accept) {
+    var h = { "Content-Type": "application/json", Accept: accept };
+    if (global.Account && global.Account.headers) {
+      var extra = global.Account.headers(true);
+      Object.keys(extra).forEach(function (k) {
+        h[k] = extra[k];
+      });
+    }
+    return h;
+  }
+  function withMemory(messages) {
+    var bits = global.Account && global.Account.systemBits && global.Account.systemBits();
+    if (!bits) return messages;
+    return [{ role: "system", content: bits }].concat(messages || []);
+  }
+
   async function postChat(messages, onToken) {
     var modelId = chatState.modelId;
     var maxOut =
@@ -66,12 +82,13 @@
         ? global.CodegenUtils.computeMaxOut(modelId, messages)
         : 8192;
     var base = backendBase();
+    messages = withMemory(messages);
 
     // Prefer SSE stream
     try {
       var res = await fetch(base + "/llm/chat/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        headers: chatHeaders("text/event-stream"),
         body: JSON.stringify({
           model: modelId,
           messages: messages,
@@ -133,7 +150,7 @@
     // Non-stream fallback
     var res2 = await fetch(base + "/llm/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: chatHeaders("application/json"),
       body: JSON.stringify({
         model: modelId,
         messages: messages,

@@ -60,6 +60,33 @@ def init_workspace(database_url: str) -> None:
                     """
                 )
             )
+            conn.execute(
+                text(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {prefix}profiles (
+                      id TEXT PRIMARY KEY,
+                      email TEXT UNIQUE NOT NULL,
+                      display_name TEXT,
+                      password_hash TEXT NOT NULL,
+                      created_at DOUBLE PRECISION NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {prefix}user_settings (
+                      user_id TEXT PRIMARY KEY,
+                      traits TEXT NOT NULL DEFAULT '[]',
+                      memory TEXT NOT NULL DEFAULT '[]',
+                      instructions TEXT,
+                      api_key_cipher TEXT,
+                      updated_at DOUBLE PRECISION NOT NULL
+                    )
+                    """
+                )
+            )
 
 
 def _prefix() -> str:
@@ -193,3 +220,175 @@ def delete_thread(tid: str) -> None:
     eng = _require()
     with eng.begin() as conn:
         conn.execute(text(f"DELETE FROM {_prefix()}threads WHERE id = :id"), {"id": tid})
+
+
+import hashlib
+import json
+import os
+
+from app.config import get_settings
+
+
+def _hash_password(password: str, salt_hex: str | None = None) -> str:
+    salt = bytes.fromhex(salt_hex) if salt_hex else os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
+    return salt.hex() + "$" + dk.hex()
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt_hex, dk_hex = stored.split("$", 1)
+    except ValueError:
+        return False
+    return _hash_password(password, salt_hex) == stored
+
+
+def _xor_cipher(plain: str) -> str:
+    seed = (get_settings().kms_seed or "nano-sandbox-dev-kms-seed-change-me").encode()
+    digest = hashlib.sha256(seed).digest()
+    raw = plain.encode("utf-8")
+    out = bytes(b ^ digest[i % len(digest)] for i, b in enumerate(raw))
+    return out.hex()
+
+
+def _xor_plain(cipher_hex: str) -> str:
+    if not cipher_hex:
+        return ""
+    seed = (get_settings().kms_seed or "nano-sandbox-dev-kms-seed-change-me").encode()
+    digest = hashlib.sha256(seed).digest()
+    raw = bytes.fromhex(cipher_hex)
+    out = bytes(b ^ digest[i % len(digest)] for i, b in enumerate(raw))
+    return out.decode("utf-8", errors="replace")
+
+
+def create_profile(email: str, password: str, display_name: str) -> dict[str, Any]:
+    email = email.strip().lower()
+    if not email or "@" not in email:
+        raise ValueError("invalid_email")
+    if len(password) < 8:
+        raise ValueError("password_too_short")
+    pid = uuid.uuid4().hex
+    row = {
+        "id": pid,
+        "email": email,
+        "display_name": (display_name or email.split("@")[0])[:80],
+        "password_hash": _hash_password(password),
+        "created_at": time.time(),
+    }
+    eng = _require()
+    with eng.begin() as conn:
+        exists = conn.execute(
+            text(f"SELECT id FROM {_prefix()}profiles WHERE email = :e"), {"e": email}
+        ).first()
+        if exists:
+            raise ValueError("email_taken")
+        conn.execute(
+            text(
+                f"""
+                INSERT INTO {_prefix()}profiles (id, email, display_name, password_hash, created_at)
+                VALUES (:id, :email, :display_name, :password_hash, :created_at)
+                """
+            ),
+            row,
+        )
+        conn.execute(
+            text(
+                f"""
+                INSERT INTO {_prefix()}user_settings (user_id, traits, memory, instructions, api_key_cipher, updated_at)
+                VALUES (:id, '[]', '[]', '', NULL, :t)
+                """
+            ),
+            {"id": pid, "t": time.time()},
+        )
+    return {"id": pid, "email": email, "display_name": row["display_name"]}
+
+
+def get_profile_by_email(email: str) -> dict[str, Any] | None:
+    eng = _require()
+    with eng.connect() as conn:
+        row = conn.execute(
+            text(
+                f"SELECT id, email, display_name, password_hash, created_at FROM {_prefix()}profiles WHERE email = :e"
+            ),
+            {"e": email.strip().lower()},
+        ).mappings().first()
+        return dict(row) if row else None
+
+
+def get_profile(pid: str) -> dict[str, Any] | None:
+    eng = _require()
+    with eng.connect() as conn:
+        row = conn.execute(
+            text(f"SELECT id, email, display_name, created_at FROM {_prefix()}profiles WHERE id = :id"),
+            {"id": pid},
+        ).mappings().first()
+        return dict(row) if row else None
+
+
+def get_user_settings(user_id: str) -> dict[str, Any]:
+    eng = _require()
+    with eng.connect() as conn:
+        row = conn.execute(
+            text(
+                f"""
+                SELECT traits, memory, instructions, api_key_cipher, updated_at
+                FROM {_prefix()}user_settings WHERE user_id = :id
+                """
+            ),
+            {"id": user_id},
+        ).mappings().first()
+    if not row:
+        return {"traits": [], "memory": [], "instructions": "", "has_api_key": False}
+    traits = json.loads(row["traits"] or "[]")
+    memory = json.loads(row["memory"] or "[]")
+    return {
+        "traits": traits if isinstance(traits, list) else [],
+        "memory": memory if isinstance(memory, list) else [],
+        "instructions": row["instructions"] or "",
+        "has_api_key": bool(row["api_key_cipher"]),
+        "updated_at": row["updated_at"],
+    }
+
+
+def put_user_settings(user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    current = get_user_settings(user_id)
+    traits = patch.get("traits", current["traits"])
+    memory = patch.get("memory", current["memory"])
+    instructions = patch.get("instructions", current["instructions"])
+    cipher = None
+    eng = _require()
+    with eng.begin() as conn:
+        existing = conn.execute(
+            text(f"SELECT api_key_cipher FROM {_prefix()}user_settings WHERE user_id = :id"),
+            {"id": user_id},
+        ).first()
+        cipher = existing[0] if existing else None
+        if patch.get("api_key"):
+            cipher = _xor_cipher(str(patch["api_key"]))
+        if patch.get("clear_api_key"):
+            cipher = None
+        conn.execute(
+            text(
+                f"""
+                INSERT INTO {_prefix()}user_settings
+                  (user_id, traits, memory, instructions, api_key_cipher, updated_at)
+                VALUES (:id, :traits, :memory, :instructions, :cipher, :t)
+                ON CONFLICT (user_id) DO UPDATE SET
+                  traits = excluded.traits,
+                  memory = excluded.memory,
+                  instructions = excluded.instructions,
+                  api_key_cipher = excluded.api_key_cipher,
+                  updated_at = excluded.updated_at
+                """
+            ),
+            {
+                "id": user_id,
+                "traits": json.dumps(traits)[:4000],
+                "memory": json.dumps(memory)[:8000],
+                "instructions": (instructions or "")[:4000],
+                "cipher": cipher,
+                "t": time.time(),
+            },
+        )
+    return get_user_settings(user_id)
+

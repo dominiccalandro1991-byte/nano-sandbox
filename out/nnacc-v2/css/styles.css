@@ -1181,3 +1181,11 @@ body.temporary-chat .history-rail{opacity:.7}
   border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;min-height:32px;
 }
 .project-chip.on{background:var(--primary-dim);color:var(--primary);border-color:rgba(61,139,253,.4)}
+
+/* —— Block D: account, memory, shortcuts, key vault —— */
+.account-av{width:22px;height:22px;border-radius:50%;background:var(--primary-dim);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.memory-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.memory-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px}
+.shortcut-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:8px 0 0;padding:0;font-size:13px}
+.shortcut-list li{display:flex;justify-content:space-between;gap:12px;align-items:center}
+kbd{font-family:var(--font);font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.04)}

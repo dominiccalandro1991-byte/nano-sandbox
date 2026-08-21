@@ -137,6 +137,8 @@ function init(){refreshAttestation();fillChatToolbar();pingApi();setInterval(pin
   try{window.showToast=showToast;window.NNACC_INGEST_FILE=ingestFile;}catch(e){}
   if(window.ComposerBar)window.ComposerBar.init();
   if(window.ShellLayout)window.ShellLayout.init();
+  if(window.Account)window.Account.init();
+  if(window.Shortcuts)window.Shortcuts.init();
 
   if(window.HistoryRail){window.HistoryRail.init({
     onSelect:function(id){switchToSession(id);},

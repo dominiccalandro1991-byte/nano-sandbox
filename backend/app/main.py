@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
-from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace
+from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth
 from app.nase.vault_db import init_engine
 
 settings = get_settings()
@@ -69,3 +69,4 @@ app.include_router(shares.router)
 app.include_router(search.router)
 app.include_router(media.router)
 app.include_router(workspace.router)
+app.include_router(auth.router)

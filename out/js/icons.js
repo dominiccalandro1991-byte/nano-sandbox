@@ -22,7 +22,8 @@
     cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>',
     code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
     rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>',
-    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
   };
 
   function svg(name) {
@@ -35,7 +36,7 @@
   }
 
   function paintRail() {
-    var map = { new: "plus", chats: "message", search: "search", labs: "flask", vault: "folder", aegis: "shield", settings: "settings" };
+    var map = { new: "plus", chats: "message", search: "search", labs: "flask", vault: "folder", aegis: "shield", account: "user", settings: "settings" };
     document.querySelectorAll("#icon-rail [data-rail]").forEach(function (btn) {
       var n = map[btn.getAttribute("data-rail")];
       if (n) btn.innerHTML = svg(n);

@@ -9,7 +9,7 @@ import json
 from typing import Any, AsyncIterator
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -143,8 +143,28 @@ def list_models() -> dict[str, Any]:
     }
 
 
+def _request_key(settings: Settings, x_user_openrouter_key: str | None) -> str:
+    user_key = (x_user_openrouter_key or "").strip()
+    if user_key:
+        return user_key
+    key = resolved_openrouter_key(settings)
+    if not key:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "openrouter_key_missing",
+                "message": "Set a key in Settings → API & keys, or OPENROUTER_API_KEY on the server",
+            },
+        )
+    return key
+
+
 @router.post("/chat")
-async def chat(body: ChatBody, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+async def chat(
+    body: ChatBody,
+    settings: Settings = Depends(get_settings),
+    x_user_openrouter_key: str | None = Header(default=None, alias="X-User-OpenRouter-Key"),
+) -> dict[str, Any]:
     model = body.model.strip()
     if model not in ALLOWED_IDS:
         raise HTTPException(
@@ -156,15 +176,7 @@ async def chat(body: ChatBody, settings: Settings = Depends(get_settings)) -> di
         )
     if not body.messages:
         raise HTTPException(status_code=400, detail="messages required")
-    key = resolved_openrouter_key(settings)
-    if not key:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "openrouter_key_missing",
-                "message": "Set NANO_SANDBOX_OPENROUTER_API_KEY or OPENROUTER_API_KEY on the server",
-            },
-        )
+    key = _request_key(settings, x_user_openrouter_key)
 
     messages = _build_messages(body)
     max_out = _compute_max_out(
@@ -222,15 +234,17 @@ async def chat(body: ChatBody, settings: Settings = Depends(get_settings)) -> di
 
 
 @router.post("/chat/stream")
-async def chat_stream(body: ChatBody, settings: Settings = Depends(get_settings)) -> StreamingResponse:
+async def chat_stream(
+    body: ChatBody,
+    settings: Settings = Depends(get_settings),
+    x_user_openrouter_key: str | None = Header(default=None, alias="X-User-OpenRouter-Key"),
+) -> StreamingResponse:
     model = body.model.strip()
     if model not in ALLOWED_IDS:
         raise HTTPException(status_code=400, detail="model_not_allowed")
     if not body.messages:
         raise HTTPException(status_code=400, detail="messages required")
-    key = resolved_openrouter_key(settings)
-    if not key:
-        raise HTTPException(status_code=503, detail={"error": "openrouter_key_missing"})
+    key = _request_key(settings, x_user_openrouter_key)
 
     messages = _build_messages(body)
     max_out = _compute_max_out(
