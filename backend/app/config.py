@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     # Empty string disables. Default is the live CausalRail API.
     causalrail_ingest_url: str = "https://causalrail-api.onrender.com/api/ingest"
 
+    incidentdojo_enabled: bool = True
+    incidentdojo_threshold: float = 0.05
+
     @field_validator("database_url", "database_read_url", mode="before")
     @classmethod
     def _coerce_db_url(cls, v):

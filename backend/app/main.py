@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
-from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch
+from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch, incidentdojo
 from app.nase.vault_db import init_engine
 
 settings = get_settings()
@@ -41,6 +41,13 @@ try:
 except Exception as _ws_init_exc:  # noqa: BLE001
     import logging
     logging.getLogger("workspace").error("workspace_db init failed: %s", _ws_init_exc)
+
+try:
+    from app.incidentdojo.store import init_incidentdojo as _init_idojo
+    _init_idojo(settings.database_url)
+except Exception as _idojo_init_exc:  # noqa: BLE001
+    import logging
+    logging.getLogger("incidentdojo").error("incidentdojo init failed: %s", _idojo_init_exc)
 
 app = FastAPI(
     title="nano-sandbox remote engine",
@@ -71,3 +78,4 @@ app.include_router(media.router)
 app.include_router(workspace.router)
 app.include_router(auth.router)
 app.include_router(proofpatch.router)
+app.include_router(incidentdojo.router)

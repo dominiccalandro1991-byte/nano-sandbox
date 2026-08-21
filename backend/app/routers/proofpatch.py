@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.config import get_settings
 from app.proofpatch import verify
 from app.causalrail_ingest import notify_proofpatch_failure
+from app.incidentdojo.hooks import notify_from_proofpatch
 
 router = APIRouter(prefix="/proofpatch", tags=["proofpatch"])
 
@@ -17,6 +18,7 @@ class VerifyIn(BaseModel):
     repo: str = "dominiccalandro1991-byte/nano-sandbox"
     base: str = "main"
     patch: str | None = Field(default=None, max_length=200_000)
+    error_stack: str | None = Field(default=None, max_length=200_000)
 
 
 @router.post("/verify")
@@ -41,6 +43,11 @@ def proofpatch_verify(body: VerifyIn) -> dict[str, Any]:
             result=result,
             ingest_url=getattr(settings, "causalrail_ingest_url", None),
         )
+    notify_from_proofpatch(
+        result=result,
+        patch=body.patch,
+        error_stack=body.error_stack or "",
+    )
     status = int(result.pop("status", 200))
     if status >= 400:
         raise HTTPException(status_code=status, detail=result)

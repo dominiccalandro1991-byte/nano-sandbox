@@ -1192,3 +1192,5 @@ kbd{font-family:var(--font);font-size:11px;padding:3px 6px;border:1px solid var(
 
 #proofpatch-diff{width:100%;min-height:120px;margin-top:8px}
 #proofpatch-log{max-height:240px;overflow:auto;margin-top:10px}
+#incidentdojo-stack{width:100%;min-height:100px;margin-top:8px}
+#incidentdojo-log{max-height:240px;overflow:auto;margin-top:10px}
