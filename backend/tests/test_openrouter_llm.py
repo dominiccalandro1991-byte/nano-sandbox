@@ -29,6 +29,9 @@ def test_chat_rejects_unknown_model():
 def test_chat_without_key_returns_503(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("NANO_SANDBOX_OPENROUTER_API_KEY", raising=False)
+    from app.keyharbor import vault
+
+    vault.init_vault("test", [])
     r = client.post(
         "/llm/chat",
         json={

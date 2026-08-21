@@ -77,13 +77,32 @@ def embed(text: str) -> tuple[list[float], str]:
     from app.config import get_settings, resolved_openrouter_key
 
     settings = get_settings()
-    key = resolved_openrouter_key(settings)
-    base = (getattr(settings, "openrouter_base_url", None) or "https://openrouter.ai/api/v1").rstrip("/")
-    if key and not os.environ.get("PYTEST_CURRENT_TEST"):
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
         try:
-            vec = _openrouter_embed(text, key, base)
-            if vec:
-                return vec, "openrouter:text-embedding-3-small"
+            from app.keyharbor.boot import boot as kh_boot
+            from app.keyharbor.proxy import embeddings as kh_emb
+            from app.keyharbor.vault import count as kh_count
+
+            if kh_count() == 0:
+                kh_boot()
+            if kh_count() > 0:
+                harbor = kh_emb("incidentdojo", {"model": MODEL, "input": (text or "")[:8000]})
+                if harbor.get("ok"):
+                    vec = (((harbor.get("data") or {}).get("data") or [{}])[0].get("embedding")) or []
+                    if isinstance(vec, list) and vec:
+                        nums = [float(x) for x in vec]
+                        if len(nums) < DIM:
+                            nums = nums + [0.0] * (DIM - len(nums))
+                        return l2_normalize(nums[:DIM]), "keyharbor:text-embedding-3-small"
         except Exception as exc:  # noqa: BLE001
-            log.warning("openrouter embed failed: %s", type(exc).__name__)
+            log.warning("keyharbor embed failed: %s", type(exc).__name__)
+        key = resolved_openrouter_key(settings)
+        base = (getattr(settings, "openrouter_base_url", None) or "https://openrouter.ai/api/v1").rstrip("/")
+        if key:
+            try:
+                vec = _openrouter_embed(text, key, base)
+                if vec:
+                    return vec, "openrouter:text-embedding-3-small"
+            except Exception as exc:  # noqa: BLE001
+                log.warning("openrouter embed failed: %s", type(exc).__name__)
     return hash_embedding(text), "hash:sha256-expand"

@@ -300,6 +300,7 @@
         <button type="button" class="set-tab" data-set="proofpatch">ProofPatch</button>
         <button type="button" class="set-tab" data-set="incidentdojo">IncidentDojo</button>
         <button type="button" class="set-tab" data-set="scopeshield">ScopeShield</button>
+        <button type="button" class="set-tab" data-set="keyharbor">KeyHarbor</button>
       </nav>
       <div class="settings-body">
         <header><h2>Settings</h2><button id="close-settings" class="icon-btn">✕</button></header>
@@ -485,6 +486,17 @@
             <pre id="scopeshield-log" class="code-block" hidden></pre>
           </article>
         </section>
+        <section class="set-pane" data-pane="keyharbor">
+          <article class="set-card">
+            <h3>KeyHarbor</h3>
+            <p class="set-help">L7 key gateway. Internal services use ephemeral tokens. Upstream keys stay in AES-256-GCM memory. Token-bucket 429. Does not rebuild engines.</p>
+            <div class="set-card-actions">
+              <button type="button" id="keyharbor-run" class="primary-btn">Status</button>
+              <span id="keyharbor-status" class="set-status">Idle</span>
+            </div>
+            <pre id="keyharbor-log" class="code-block" hidden></pre>
+          </article>
+        </section>
         <footer><button id="save-settings" class="primary-btn">Save</button></footer>
       </div>
     </div>
@@ -603,6 +615,7 @@
   <script src="js/proofpatch.js?v=block-e"></script>
   <script src="js/incidentdojo.js?v=incidentdojo-1"></script>
   <script src="js/scopeshield.js?v=scopeshield-1"></script>
+  <script src="js/keyharbor.js?v=keyharbor-1"></script>
   <script src="js/ui-controller.js?v=block-d"></script>
 </body>
 </html>

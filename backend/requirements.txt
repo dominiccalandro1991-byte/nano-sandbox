@@ -8,6 +8,7 @@ sqlalchemy>=2.0,<3.0
 # PostgreSQL driver (production). Tests may use sqlite+pysqlite via DATABASE_URL.
 psycopg[binary]>=3.1
 PyJWT>=2.8
+cryptography>=42,<46
 
 # dev / test only
 pytest>=8.0

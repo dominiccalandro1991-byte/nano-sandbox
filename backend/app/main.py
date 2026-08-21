@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
-from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch, incidentdojo, scopeshield
+from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch, incidentdojo, scopeshield, keyharbor
 from app.nase.vault_db import init_engine
 
 settings = get_settings()
@@ -62,6 +62,15 @@ except Exception as _ss_exc:  # noqa: BLE001
     import logging
     logging.getLogger("scopeshield").error("preflight skipped: %s", _ss_exc)
 
+try:
+    from app.keyharbor.boot import boot as _kh_boot
+    _kh_n = _kh_boot()
+    import logging as _khlog
+    _khlog.getLogger("keyharbor").info("vault keys=%s", _kh_n)
+except Exception as _kh_exc:  # noqa: BLE001
+    import logging
+    logging.getLogger("keyharbor").error("vault boot skipped: %s", _kh_exc)
+
 app = FastAPI(
     title="nano-sandbox remote engine",
     description="Optional remote validation engine for the NanoHabitat Sandbox Engine (NHSE).",
@@ -93,3 +102,4 @@ app.include_router(auth.router)
 app.include_router(proofpatch.router)
 app.include_router(incidentdojo.router)
 app.include_router(scopeshield.router)
+app.include_router(keyharbor.router)

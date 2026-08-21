@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     incidentdojo_enabled: bool = True
     incidentdojo_threshold: float = 0.05
 
+    keyharbor_enabled: bool = True
+
     @field_validator("database_url", "database_read_url", mode="before")
     @classmethod
     def _coerce_db_url(cls, v):
