@@ -286,6 +286,54 @@ def record_remediation(
     }
 
 
+def _parse_vec(raw: Any) -> list[float]:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [float(x) for x in raw]
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return []
+        if s[0] == "[":
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [float(x) for x in parsed]
+            except Exception:
+                parts = s.strip("[]").split(",")
+                return [float(p) for p in parts if p.strip()]
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                return [float(x) for x in parsed]
+        except Exception:
+            return []
+    return []
+
+
+def _pick_best(vec: list[float], rows: Any) -> dict[str, Any] | None:
+    best: dict[str, Any] | None = None
+    for row in rows:
+        stored = row.get("error_vector")
+        stored_list = _parse_vec(stored)
+        if len(stored_list) != len(vec):
+            pg_dist = row.get("distance")
+            dist = float(pg_dist) if pg_dist is not None else 1.0
+        else:
+            dist = cosine_distance(vec, stored_list)
+        patch = row.get("patch_diff")
+        better = best is None or dist < best["distance"] or (
+            dist == best["distance"] and patch and not best.get("patch_diff")
+        )
+        if better:
+            item = dict(row)
+            item.pop("error_vector", None)
+            item["distance"] = dist
+            best = item
+    return best
+
+
 def query_patch(error_stack: str, threshold: float = THRESHOLD) -> dict[str, Any]:
     sig = (error_stack or "").strip()
     if not sig:
@@ -295,25 +343,22 @@ def query_patch(error_stack: str, threshold: float = THRESHOLD) -> dict[str, Any
     best: dict[str, Any] | None = None
     with eng.connect() as conn:
         if _is_pg and _has_vector:
-            row = conn.execute(
+            rows = conn.execute(
                 text(
                     f"""
                     SELECT i.id, i.causalrail_trace_id, i.error_signature, i.origin_hash, i.fingerprint,
-                           r.patch_diff, r.proofpatch_commit_sha,
+                           i.error_vector::text AS error_vector, r.patch_diff, r.proofpatch_commit_sha,
                            (i.error_vector <=> CAST(:vec AS vector)) AS distance
                     FROM {_prefix()}incidents i
                     LEFT JOIN {_prefix()}remediations r ON r.incident_id = i.id
                     ORDER BY i.error_vector <=> CAST(:vec AS vector),
-                             (r.patch_diff IS NULL),
-                             r.created_at DESC NULLS LAST
-                    LIMIT 1
+                             (r.patch_diff IS NULL)
+                    LIMIT 32
                     """
                 ),
                 {"vec": _vec_literal(vec)},
-            ).mappings().first()
-            if row:
-                best = dict(row)
-                best["distance"] = float(best.get("distance") or 1.0)
+            ).mappings()
+            best = _pick_best(vec, rows)
         else:
             rows = conn.execute(
                 text(
@@ -325,20 +370,7 @@ def query_patch(error_stack: str, threshold: float = THRESHOLD) -> dict[str, Any
                     """
                 )
             ).mappings()
-            for row in rows:
-                stored = row["error_vector"]
-                if isinstance(stored, str):
-                    stored = json.loads(stored)
-                dist = cosine_distance(vec, list(stored))
-                patch = row.get("patch_diff")
-                better = best is None or dist < best["distance"] or (
-                    dist == best["distance"] and patch and not best.get("patch_diff")
-                )
-                if better:
-                    item = dict(row)
-                    item.pop("error_vector", None)
-                    item["distance"] = dist
-                    best = item
+            best = _pick_best(vec, rows)
     if not best:
         return {"hit": False, "embedding": source, "threshold": threshold}
     dist = float(best["distance"])
