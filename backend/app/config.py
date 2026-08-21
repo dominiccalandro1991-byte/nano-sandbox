@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     proofpatch_allowed_repos: str = "dominiccalandro1991-byte/nano-sandbox"
     proofpatch_timeout_seconds: float = 90.0
 
+    # HTTP ingest to CausalRail (separate product / separate DB). NEVER a postgres URI.
+    # Empty string disables. Default is the live CausalRail API.
+    causalrail_ingest_url: str = "https://causalrail-api.onrender.com/api/ingest"
+
     @field_validator("database_url", "database_read_url", mode="before")
     @classmethod
     def _coerce_db_url(cls, v):

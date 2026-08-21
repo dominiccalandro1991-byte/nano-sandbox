@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.proofpatch import verify
+from app.causalrail_ingest import notify_proofpatch_failure
 
 router = APIRouter(prefix="/proofpatch", tags=["proofpatch"])
 
@@ -34,6 +35,12 @@ def proofpatch_verify(body: VerifyIn) -> dict[str, Any]:
         allowed_repos=allowed,
         timeout=float(getattr(settings, "proofpatch_timeout_seconds", 90.0)),
     )
+    if not result.get("ok"):
+        notify_proofpatch_failure(
+            repo=body.repo,
+            result=result,
+            ingest_url=getattr(settings, "causalrail_ingest_url", None),
+        )
     status = int(result.pop("status", 200))
     if status >= 400:
         raise HTTPException(status_code=status, detail=result)
