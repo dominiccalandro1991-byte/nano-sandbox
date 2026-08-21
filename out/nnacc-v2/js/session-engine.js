@@ -24,6 +24,7 @@
 
   const INDEX_KEY = "nnacc_session_index";
   const ACTIVE_KEY = "nnacc_active_session";
+  const PREFIX = "nnacc_session_";
   const TEMP_MEM = {};
 
   function now() {
