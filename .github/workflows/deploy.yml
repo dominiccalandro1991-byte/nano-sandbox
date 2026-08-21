@@ -22,6 +22,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
+      - name: ScopeShield
+        env:
+          SCOPESHIELD_CI: ok
+        run: |
+          chmod +x scopeshield/bin/scopeshield
+          ./scopeshield/bin/scopeshield check --contract scopeshield/contracts/ci.yaml --skip-liveness
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

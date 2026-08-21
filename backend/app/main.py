@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.orchestrator import jobs as job_store
-from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch, incidentdojo
+from app.routers import health, jobs, validators, nase, openrouter_llm, shares, search, media, workspace, auth, proofpatch, incidentdojo, scopeshield
 from app.nase.vault_db import init_engine
 
 settings = get_settings()
@@ -49,6 +49,19 @@ except Exception as _idojo_init_exc:  # noqa: BLE001
     import logging
     logging.getLogger("incidentdojo").error("incidentdojo init failed: %s", _idojo_init_exc)
 
+try:
+    from app.scopeshield.engine import preflight as _scopeshield_preflight
+    _ss = _scopeshield_preflight("nano-sandbox", skip_liveness=True)
+    import logging as _logging
+    _logging.getLogger("scopeshield").info(
+        "preflight ok=%s failures=%s",
+        _ss.get("ok"),
+        [f.get("name") + ":" + f.get("reason", "") for f in (_ss.get("failures") or [])],
+    )
+except Exception as _ss_exc:  # noqa: BLE001
+    import logging
+    logging.getLogger("scopeshield").error("preflight skipped: %s", _ss_exc)
+
 app = FastAPI(
     title="nano-sandbox remote engine",
     description="Optional remote validation engine for the NanoHabitat Sandbox Engine (NHSE).",
@@ -79,3 +92,4 @@ app.include_router(workspace.router)
 app.include_router(auth.router)
 app.include_router(proofpatch.router)
 app.include_router(incidentdojo.router)
+app.include_router(scopeshield.router)

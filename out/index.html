@@ -299,6 +299,7 @@
         <button type="button" class="set-tab" data-set="security">Security</button>
         <button type="button" class="set-tab" data-set="proofpatch">ProofPatch</button>
         <button type="button" class="set-tab" data-set="incidentdojo">IncidentDojo</button>
+        <button type="button" class="set-tab" data-set="scopeshield">ScopeShield</button>
       </nav>
       <div class="settings-body">
         <header><h2>Settings</h2><button id="close-settings" class="icon-btn">✕</button></header>
@@ -473,6 +474,17 @@
             <pre id="incidentdojo-log" class="code-block" hidden></pre>
           </article>
         </section>
+        <section class="set-pane" data-pane="scopeshield">
+          <article class="set-card">
+            <h3>ScopeShield</h3>
+            <p class="set-help">Fail-fast environment contract. Names only — values are never shown. Does not rebuild engines.</p>
+            <div class="set-card-actions">
+              <button type="button" id="scopeshield-run" class="primary-btn">Preflight</button>
+              <span id="scopeshield-status" class="set-status">Idle</span>
+            </div>
+            <pre id="scopeshield-log" class="code-block" hidden></pre>
+          </article>
+        </section>
         <footer><button id="save-settings" class="primary-btn">Save</button></footer>
       </div>
     </div>
@@ -590,6 +602,7 @@
   <script src="js/shortcuts.js?v=block-d"></script>
   <script src="js/proofpatch.js?v=block-e"></script>
   <script src="js/incidentdojo.js?v=incidentdojo-1"></script>
+  <script src="js/scopeshield.js?v=scopeshield-1"></script>
   <script src="js/ui-controller.js?v=block-d"></script>
 </body>
 </html>

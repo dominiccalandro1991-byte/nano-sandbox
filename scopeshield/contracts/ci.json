@@ -1,0 +1,18 @@
+{
+  "service": "ci",
+  "description": "Offline fixture for GitHub Actions / unit tests. No production secrets.",
+  "variables": [
+    {
+      "name": "SCOPESHIELD_CI",
+      "type": "string",
+      "required": true,
+      "regex": "^ok$"
+    },
+    {
+      "name": "SCOPESHIELD_URL",
+      "type": "url",
+      "required": false,
+      "regex": "^https://example\\.com"
+    }
+  ]
+}

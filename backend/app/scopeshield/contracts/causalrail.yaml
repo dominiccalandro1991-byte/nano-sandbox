@@ -1,0 +1,48 @@
+service: causalrail
+description: CausalRail API. Separate DB from nano-sandbox. Do not put sujvxx DATABASE_URL here.
+variables:
+  - name: DATABASE_URL
+    type: postgres_url
+    required: true
+    regex: "^postgres(ql)?(\\+psycopg)?://"
+    forbid:
+      - sujvxxrwjqsziswuazwm
+      - nano-sandbox
+    notes: CausalRail Postgres only.
+  - name: GITHUB_WEBHOOK_SECRET
+    type: string
+    required: true
+    min_length: 8
+    notes: Must match the existing GitHub webhook Secret. Do not rotate casually.
+  - name: GITHUB_TOKEN
+    type: string
+    required: false
+    min_length: 8
+    liveness:
+      method: HEAD
+      url: https://api.github.com
+      timeout_ms: 4000
+      bearer_env: GITHUB_TOKEN
+  - name: OPENROUTER_API_KEY
+    type: string
+    required: false
+    min_length: 8
+  - name: INCIDENTDOJO_URL
+    type: https_url
+    required: false
+    regex: "^https://"
+    forbid:
+      - postgres
+      - postgresql
+      - supabase.com
+    liveness:
+      method: HEAD
+      url: https://nano-sandbox-api.onrender.com/incidentdojo/health
+      timeout_ms: 4000
+  - name: CLIENT_ORIGIN
+    type: string
+    required: false
+  - name: PORT
+    type: string
+    required: false
+    regex: "^[0-9]{2,5}$"

@@ -1,0 +1,22 @@
+[package]
+name = "scopeshield"
+version = "1.0.0"
+edition = "2021"
+description = "Fail-fast environment validation proxy. Not an NHSE engine."
+license = "MIT"
+publish = false
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+regex = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+ureq = { version = "2.12", default-features = true, features = ["tls"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = true

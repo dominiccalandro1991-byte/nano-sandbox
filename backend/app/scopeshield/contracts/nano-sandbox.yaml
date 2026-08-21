@@ -1,0 +1,49 @@
+service: nano-sandbox
+description: Voltage Cipher Studio / ProofPatch / IncidentDojo API. Separate DB from CausalRail.
+variables:
+  - name: NANO_SANDBOX_DATABASE_URL
+    type: postgres_url
+    required: true
+    regex: "^(sqlite:|postgres(ql)?(\\+psycopg)?://)"
+    forbid:
+      - hlwqtlrkwhuogcwnhjrs
+      - causalrail-api
+    notes: Must be nano-sandbox Supabase sujvxxrwjqsziswuazwm or local sqlite. Never CausalRail.
+  - name: DATABASE_URL
+    type: postgres_url
+    required: false
+    forbid:
+      - hlwqtlrkwhuogcwnhjrs
+    notes: Optional alias. Same product DB only.
+  - name: NANO_SANDBOX_OPENROUTER_API_KEY
+    type: string
+    required: false
+    min_length: 8
+  - name: OPENROUTER_API_KEY
+    type: string
+    required: false
+    min_length: 8
+  - name: NANO_SANDBOX_CAUSALRAIL_INGEST_URL
+    type: https_url
+    required: false
+    regex: "^https://"
+    forbid:
+      - postgres
+      - postgresql
+      - supabase.com
+    liveness:
+      method: HEAD
+      url: https://causalrail-api.onrender.com/health
+      timeout_ms: 4000
+  - name: NANO_SANDBOX_INCIDENTDOJO_ENABLED
+    type: string
+    required: false
+    regex: "^(true|false|1|0)?$"
+  - name: NANO_SANDBOX_PROOFPATCH_ENABLED
+    type: string
+    required: false
+    regex: "^(true|false|1|0)?$"
+  - name: NANO_SANDBOX_KMS_SEED
+    type: string
+    required: false
+    min_length: 16
