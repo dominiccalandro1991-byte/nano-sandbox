@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Documented Supabase project host (no credentials).
@@ -20,17 +21,22 @@ SUPABASE_PROJECT_REF = "sujvxxrwjqsziswuazwm"
 SUPABASE_HOST = f"{SUPABASE_PROJECT_REF}.supabase.co"
 
 
+def normalize_database_url(val: str) -> str:
+    """Force SQLAlchemy onto psycopg v3 (psycopg[binary]), not psycopg2."""
+    val = (val or "").strip()
+    if val.startswith("postgres://"):
+        return "postgresql+psycopg://" + val[len("postgres://") :]
+    if val.startswith("postgresql://") and "+psycopg" not in val:
+        return "postgresql+psycopg://" + val[len("postgresql://") :]
+    return val
+
+
 def _default_database_url() -> str:
     """Prefer explicit env; else safe local SQLite for tests/dev."""
     for key in ("NANO_SANDBOX_DATABASE_URL", "DATABASE_URL"):
-        val = os.environ.get(key, "").strip()
-        if val:
-            # Normalize postgres:// → postgresql+psycopg:// for SQLAlchemy 2 + psycopg3
-            if val.startswith("postgres://"):
-                val = "postgresql+psycopg://" + val[len("postgres://") :]
-            elif val.startswith("postgresql://") and "+psycopg" not in val:
-                val = "postgresql+psycopg://" + val[len("postgresql://") :]
-            return val
+        raw = os.environ.get(key, "").strip()
+        if raw:
+            return normalize_database_url(raw)
     return "sqlite:////tmp/nano-sandbox-nase-vault.db"
 
 
@@ -70,6 +76,13 @@ class Settings(BaseSettings):
     proofpatch_enabled: bool = True
     proofpatch_allowed_repos: str = "dominiccalandro1991-byte/nano-sandbox"
     proofpatch_timeout_seconds: float = 90.0
+
+    @field_validator("database_url", "database_read_url", mode="before")
+    @classmethod
+    def _coerce_db_url(cls, v):
+        if v is None or v == "":
+            return v
+        return normalize_database_url(str(v))
 
 
 def get_settings() -> Settings:
