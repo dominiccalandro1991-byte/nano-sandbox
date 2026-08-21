@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <title>Voltage Cipher Studio · NNACC</title>
-  <link rel="stylesheet" href="css/styles.css?v=block-a" />
+  <link rel="stylesheet" href="css/styles.css?v=block-b" />
 </head>
 <body>
     <div id="volatile-storage-banner" class="volatile-banner" hidden role="alert">
@@ -118,6 +118,8 @@
           <div class="drop-overlay" id="drop-overlay"><p>Drop files or photos into the vault</p></div>
           <div class="composer-shell">
             <div id="composer-chips" class="composer-chips" hidden></div>
+            <div id="search-results" class="search-results" hidden></div>
+            <canvas id="voice-wave" class="voice-wave" width="280" height="36" hidden aria-hidden="true"></canvas>
             <div class="composer-box">
               <button type="button" id="plus-btn" class="composer-icon" aria-label="Add files, photos, skills">+</button>
               <button type="button" id="mode-search" class="mode-chip" aria-pressed="false">Search</button>
@@ -129,8 +131,10 @@
             </div>
             <div id="plus-menu" class="plus-menu" hidden>
               <button type="button" class="plus-item" data-plus="file">📎 Add files or photos</button>
-              <button type="button" class="plus-item" data-plus="photo">📷 Take a screenshot / camera</button>
+              <button type="button" class="plus-item" data-plus="screenshot">🖥 Screenshot (this screen)</button>
+              <button type="button" class="plus-item" data-plus="camera">📷 Camera</button>
               <button type="button" class="plus-item" data-plus="web">🌐 Web search</button>
+              <button type="button" class="plus-item" data-plus="image">🖼 Generate image</button>
               <div class="plus-label">Recent</div>
               <div id="plus-recent"></div>
               <div class="plus-label">Skills</div>
@@ -148,6 +152,16 @@
           </div>
           <input type="file" id="file-picker" accept="*/*" multiple hidden />
           <input type="file" id="photo-picker" accept="image/*" capture="environment" hidden />
+        </div>
+        <div id="capture-overlay" class="capture-overlay" hidden>
+          <div class="capture-card">
+            <p id="capture-title">Capture</p>
+            <video id="capture-video" autoplay playsinline muted></video>
+            <div class="capture-actions">
+              <button type="button" id="capture-cancel" class="ghost-btn">Cancel</button>
+              <button type="button" id="capture-snap" class="primary-btn">Snap</button>
+            </div>
+          </div>
         </div>
       </main>
       <main id="view-usse" class="view"><div class="panel"><h2>Engine 23 · USSE Stress Simulation Lab</h2><p class="muted">Upload or paste a game / physics / logic specification.</p><div id="usse-drop" class="drop-zone secondary"><p>Drop .md / .txt here or use the chat drop zone</p></div><pre id="usse-preview" class="code-block"></pre><button id="run-usse-btn" class="primary-btn" disabled>Run USSE Stress Test</button></div></main>
@@ -450,6 +464,7 @@
     <script src="js/usse-bridge.js?v=unified-1.0"></script>
   <script src="js/studio-engine.js?v=unified-1.0"></script>
   <script src="js/vault-engine.js?v=unified-1.0"></script>
+  <script src="js/recent-files.js?v=block-b"></script>
   <script src="js/session-engine.js?v=block-a"></script>
   <script src="js/history-rail.js?v=unified-3.0"></script>
   <script src="js/debug-security-engine.js?v=unified-1.0"></script>
@@ -460,9 +475,9 @@
   <script src="js/virtual-stress-ui.js?v=unified-1.0"></script>
   <script src="js/macro-engine-ui.js?v=unified-1.0"></script>
   <script src="js/aegis-engine.js?v=unified-1.0"></script>
-  <script src="js/composer-bar.js?v=unified-3.0"></script>
+  <script src="js/composer-bar.js?v=block-b"></script>
   <script src="js/shell-layout.js?v=block-a"></script>
   <script src="js/chat-screen.js?v=block-a"></script>
-  <script src="js/ui-controller.js?v=block-a"></script>
+  <script src="js/ui-controller.js?v=block-b"></script>
 </body>
 </html>
