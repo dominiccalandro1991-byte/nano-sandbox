@@ -967,3 +967,62 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
   .settings-shell{flex-direction:column;width:96vw}
   .settings-nav{width:100%;flex-basis:auto;flex-direction:row;overflow:auto;border-right:none;border-bottom:1px solid var(--border)}
 }
+
+/* —— Sidebar panel switch (chats vs labs) —— */
+.sidebar{overflow-x:hidden;overflow-y:hidden}
+.app.show-labs .sidebar-nav,
+.app[data-panel="labs"] .sidebar-nav{
+  display:flex !important;
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+}
+.app:not(.show-labs) .sidebar-nav{display:none !important}
+.app.show-labs .history-rail,
+.app[data-panel="labs"] .history-rail{display:none !important}
+.app:not(.show-labs) .history-rail{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+}
+.app:not(.show-labs) .session-history{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+}
+.nav-item{min-height:44px}
+
+/* —— Settings cards (one concern per bubble) —— */
+.set-card{
+  display:block;
+  margin:0 0 12px;
+  padding:14px 14px 12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.03);
+}
+.set-card h3{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--text)}
+.set-help{margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.45}
+.set-card input,.set-card textarea{
+  width:100%;margin-top:0;padding:9px 11px;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;
+}
+.set-card-api input{font-family:var(--font);font-size:12px}
+.set-card-actions{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.set-status{font-size:12px;color:var(--muted)}
+.set-status.ok{color:var(--success)}
+.set-status.bad{color:var(--danger)}
+.set-link{display:inline-block;margin-top:10px;font-size:12px;color:var(--primary)}
+.set-status-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text)}
+.set-pill{font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+.set-pill.live{border-color:rgba(61,214,140,.35);color:var(--success)}
+.trait-row{display:flex;flex-wrap:wrap;gap:8px}
+.trait-chip{
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  border-radius:999px;padding:8px 12px;min-height:40px;cursor:pointer;font-size:12px;
+}
+.trait-chip.on{background:var(--primary-dim);color:var(--primary);border-color:rgba(61,139,253,.4)}
+.settings-shell{width:min(920px,96vw)}

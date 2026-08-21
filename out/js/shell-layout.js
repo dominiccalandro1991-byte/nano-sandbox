@@ -1,6 +1,6 @@
 /**
- * ChatGPT / Grok / Claude / Gemini / Perplexity shell:
- * icon rail + history column + empty greeting + two-pane settings.
+ * Sidebar panel routing + Settings cards only.
+ * Do not own chat send / engines / composer.
  */
 (function (global) {
   "use strict";
@@ -15,8 +15,14 @@
     });
     var app = $("app");
     var sidebar = $("sidebar");
-    if (app) app.classList.toggle("show-labs", which === "labs");
-    if (sidebar && (which === "chats" || which === "search" || which === "labs")) {
+    var title = $("sidebar-panel-title");
+    var labs = which === "labs" || which === "vault" || which === "aegis";
+    if (app) {
+      app.classList.toggle("show-labs", labs);
+      app.setAttribute("data-panel", labs ? "labs" : "chats");
+    }
+    if (title) title.textContent = labs ? "Labs" : "Chats";
+    if (sidebar && (which === "chats" || which === "search" || labs)) {
       sidebar.classList.add("open");
       sidebar.classList.remove("collapsed");
     }
@@ -28,6 +34,45 @@
     if (!view) return;
     var n = list ? list.querySelectorAll(".msg").length : 0;
     view.classList.toggle("has-messages", n > 0);
+  }
+
+  function remoteUrl() {
+    var el = $("setting-remote");
+    var v = el && el.value ? el.value.trim() : "";
+    if (!v) {
+      try {
+        v = localStorage.getItem("nnacc-v2-remote") || "";
+      } catch (e) {}
+    }
+    return (v || "https://nano-sandbox-api.onrender.com").replace(/\/$/, "");
+  }
+
+  function testApi() {
+    var st = $("api-test-status");
+    var url = remoteUrl();
+    if (st) st.textContent = "Checking…";
+    var docs = $("api-docs-link");
+    if (docs) docs.href = url + "/docs";
+    fetch(url + "/health", { headers: { Accept: "application/json" } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j, status: r.status };
+        });
+      })
+      .then(function (x) {
+        if (st) {
+          st.textContent = x.ok
+            ? "Live · " + (x.j.status || x.j.ok || "ok")
+            : "HTTP " + x.status;
+          st.className = "set-status " + (x.ok ? "ok" : "bad");
+        }
+      })
+      .catch(function () {
+        if (st) {
+          st.textContent = "Unreachable";
+          st.className = "set-status bad";
+        }
+      });
   }
 
   function wireSettings() {
@@ -50,9 +95,41 @@
         (global.SessionEngine.listSessions() || []).forEach(function (e) {
           global.SessionEngine.deleteSession(e.id);
         });
-        var s = global.SessionEngine.createSession({ title: "New chat" });
+        global.SessionEngine.createSession({ title: "New chat" });
         if (global.HistoryRail) global.HistoryRail.refresh();
         location.reload();
+      });
+    }
+    var testBtn = $("test-api-btn");
+    if (testBtn) testBtn.addEventListener("click", testApi);
+    var remote = $("setting-remote");
+    if (remote) {
+      remote.addEventListener("input", function () {
+        var docs = $("api-docs-link");
+        if (docs) docs.href = remoteUrl() + "/docs";
+      });
+    }
+    document.querySelectorAll(".trait-chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        chip.classList.toggle("on");
+        var box = $("setting-instructions");
+        if (!box) return;
+        var traits = [];
+        document.querySelectorAll(".trait-chip.on").forEach(function (c) {
+          traits.push(c.getAttribute("data-trait"));
+        });
+        var body = box.value.replace(/\n?Traits:.*$/m, "").trim();
+        box.value = body + (traits.length ? "\nTraits: " + traits.join(", ") : "");
+      });
+    });
+    var aegis = $("settings-open-aegis");
+    if (aegis) {
+      aegis.addEventListener("click", function () {
+        var sm = $("settings-modal");
+        if (sm) sm.hidden = true;
+        var a = document.querySelector('.nav-item[data-view="aegis"]');
+        if (a) a.click();
+        setRail("labs");
       });
     }
     try {
@@ -60,13 +137,19 @@
       var r = localStorage.getItem("vc-role");
       var i = localStorage.getItem("vc-instructions");
       var a = localStorage.getItem("vc-accent");
+      var lang = localStorage.getItem("vc-lang");
+      var vlang = localStorage.getItem("vc-voice-lang");
       if (n && $("setting-name")) $("setting-name").value = n;
       if (r && $("setting-role")) $("setting-role").value = r;
       if (i && $("setting-instructions")) $("setting-instructions").value = i;
+      if (lang && $("setting-lang")) $("setting-lang").value = lang;
+      if (vlang && $("setting-voice-lang")) $("setting-voice-lang").value = vlang;
       if (a && $("setting-accent")) {
         $("setting-accent").value = a;
         document.documentElement.style.setProperty("--primary", a);
       }
+      var savedRemote = localStorage.getItem("nnacc-v2-remote");
+      if (savedRemote && $("setting-remote")) $("setting-remote").value = savedRemote;
     } catch (e) {}
   }
 
@@ -75,6 +158,8 @@
       if ($("setting-name")) localStorage.setItem("vc-name", $("setting-name").value);
       if ($("setting-role")) localStorage.setItem("vc-role", $("setting-role").value);
       if ($("setting-instructions")) localStorage.setItem("vc-instructions", $("setting-instructions").value);
+      if ($("setting-lang")) localStorage.setItem("vc-lang", $("setting-lang").value);
+      if ($("setting-voice-lang")) localStorage.setItem("vc-voice-lang", $("setting-voice-lang").value);
       if ($("setting-accent")) {
         localStorage.setItem("vc-accent", $("setting-accent").value);
         document.documentElement.style.setProperty("--primary", $("setting-accent").value);
@@ -93,6 +178,8 @@
         var nc = $("new-chat-btn");
         if (nc) nc.click();
         setRail("chats");
+        var chat = document.querySelector('.nav-item[data-view="chat"]');
+        if (chat) chat.click();
         return;
       }
       if (which === "search") {
@@ -107,11 +194,13 @@
         return;
       }
       if (which === "vault") {
+        setRail("labs");
         var v = document.querySelector('.nav-item[data-view="vault"]');
         if (v) v.click();
         return;
       }
       if (which === "aegis") {
+        setRail("labs");
         var a = document.querySelector('.nav-item[data-view="aegis"]');
         if (a) a.click();
         return;
@@ -121,6 +210,18 @@
         return;
       }
       setRail("chats");
+    });
+  }
+
+  function wireNavSync() {
+    var nav = document.querySelector(".sidebar-nav");
+    if (!nav) return;
+    nav.addEventListener("click", function (ev) {
+      var item = ev.target.closest(".nav-item");
+      if (!item || item.id === "open-settings") return;
+      var view = item.getAttribute("data-view");
+      if (view === "chat") setRail("chats");
+      else setRail("labs");
     });
   }
 
@@ -192,7 +293,10 @@
     function sweep() {
       syncEmpty();
       list.querySelectorAll(".msg.assistant").forEach(function (el) {
-        attachMessageActions(el, { role: "assistant", text: (el.querySelector(".msg-body") || el).textContent });
+        attachMessageActions(el, {
+          role: "assistant",
+          text: (el.querySelector(".msg-body") || el).textContent
+        });
       });
     }
     obs = new MutationObserver(sweep);
@@ -203,6 +307,7 @@
   global.ShellLayout = {
     init: function () {
       wireRail();
+      wireNavSync();
       wireSuggest();
       wireSettings();
       watchMessages();
@@ -210,6 +315,7 @@
     },
     syncEmpty: syncEmpty,
     persistExtraSettings: persistExtraSettings,
-    attachMessageActions: attachMessageActions
+    attachMessageActions: attachMessageActions,
+    setRail: setRail
   };
 })(typeof window !== "undefined" ? window : globalThis);
