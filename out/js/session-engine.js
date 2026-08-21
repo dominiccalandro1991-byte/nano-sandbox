@@ -125,9 +125,16 @@
           : "No messages yet",
         tools: tools,
         pinned: !!(session.pinned || prevPinned),
+        archived: !!session.archived,
+        projectId: session.projectId || null,
         haystack: hay.join("\n").slice(0, 8000)
       });
       writeIndex(index.slice(0, 40));
+      try {
+        if (global.Workspace && global.Workspace.upsertThread) {
+          global.Workspace.upsertThread(session, index[0]);
+        }
+      } catch (e) {}
       return true;
     } catch {
       return false;
@@ -145,6 +152,8 @@
       files: [],
       pendingUssePayload: null,
       temporary: !!(opts && opts.temporary),
+      archived: false,
+      projectId: (opts && opts.projectId) || null,
     };
     writeSession(session);
     if (!session.temporary) setActiveSessionId(id);
@@ -152,9 +161,13 @@
     return session;
   }
 
-  function listSessions() {
+  function listSessions(opts) {
+    opts = opts || {};
     var list = readIndex().filter(function (e) {
-      return !e.temporary;
+      if (e.temporary) return false;
+      if (opts.archived) return !!e.archived;
+      if (opts.projectId) return e.projectId === opts.projectId && !e.archived;
+      return !e.archived;
     });
     list.sort(function (a, b) {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
@@ -176,6 +189,44 @@
       writeIndex(index);
     }
     return !!pinned;
+  }
+
+  function archiveSession(id, archived) {
+    var s = readSession(id);
+    if (s) {
+      s.archived = !!archived;
+      writeSession(s);
+    } else {
+      writeIndex(
+        readIndex().map(function (e) {
+          if (e.id === id) e.archived = !!archived;
+          return e;
+        })
+      );
+    }
+    try {
+      if (global.Workspace) global.Workspace.patchThread(id, { archived: !!archived });
+    } catch (e) {}
+    return !!archived;
+  }
+
+  function setProject(id, projectId) {
+    var s = readSession(id);
+    if (s) {
+      s.projectId = projectId || null;
+      writeSession(s);
+    } else {
+      writeIndex(
+        readIndex().map(function (e) {
+          if (e.id === id) e.projectId = projectId || null;
+          return e;
+        })
+      );
+    }
+    try {
+      if (global.Workspace) global.Workspace.patchThread(id, { archived: false, project_id: projectId || null });
+    } catch (e) {}
+    return projectId;
   }
 
   function renameSession(id, title) {
@@ -247,6 +298,9 @@
       if (index.length) setActiveSessionId(index[0].id);
       else setActiveSessionId(null);
     }
+    try {
+      if (global.Workspace) global.Workspace.deleteThread(id);
+    } catch (e) {}
   }
 
   function deriveTitle(session) {
@@ -365,6 +419,8 @@
     deleteSession: deleteSession,
     pinSession: pinSession,
     renameSession: renameSession,
+    archiveSession: archiveSession,
+    setProject: setProject,
     getActiveSessionId: getActiveSessionId,
     setActiveSessionId: setActiveSessionId,
     loadOrCreateActive: loadOrCreateActive,

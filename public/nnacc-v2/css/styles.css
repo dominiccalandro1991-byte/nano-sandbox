@@ -1162,3 +1162,22 @@ body.temporary-chat .history-rail{opacity:.7}
 .capture-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 .gen-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:8px;border:1px solid var(--border)}
 .image-msg{max-width:640px}
+
+/* —— Block C: lucide icons, folders, archive, first-class delete —— */
+.vc-ico{width:18px;height:18px;display:block;flex-shrink:0}
+#icon-rail button{display:flex;align-items:center;justify-content:center}
+#icon-rail .vc-ico{width:20px;height:20px}
+.nav-icon .vc-ico{width:16px;height:16px;margin:0 auto}
+.session-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:36px;min-height:36px;opacity:1 !important}
+.session-delete-btn{color:var(--danger);border:1px solid rgba(255,107,107,.35);padding:0 8px;border-radius:8px;font-size:11px}
+.session-delete-btn .vc-ico{width:14px;height:14px}
+.session-delete-btn span{font-size:11px}
+.session-trail{display:flex;flex-wrap:wrap;gap:4px;opacity:1}
+.projects-bar{display:flex;flex-direction:column;gap:6px;padding:6px 10px 8px}
+.new-project-btn{width:100%;justify-content:center}
+.project-chips{display:flex;flex-wrap:wrap;gap:6px}
+.project-chip{
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;min-height:32px;
+}
+.project-chip.on{background:var(--primary-dim);color:var(--primary);border-color:rgba(61,139,253,.4)}
