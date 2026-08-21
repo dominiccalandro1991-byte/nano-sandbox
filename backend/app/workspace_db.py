@@ -22,6 +22,9 @@ def init_workspace(database_url: str) -> None:
     connect_args: dict[str, Any] = {}
     if url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
+    elif "postgresql" in url or url.startswith("postgres"):
+        connect_args["sslmode"] = "require"
+        connect_args["prepare_threshold"] = None
     with _lock:
         _engine = create_engine(url, pool_pre_ping=True, future=True, connect_args=connect_args)
         _is_pg = _engine.dialect.name == "postgresql"

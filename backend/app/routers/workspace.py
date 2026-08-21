@@ -42,7 +42,10 @@ def _guard() -> None:
 @router.get("/projects")
 def get_projects() -> dict[str, Any]:
     _guard()
-    return {"projects": ws.list_projects()}
+    try:
+        return {"projects": ws.list_projects()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"list_projects: {exc}") from exc
 
 
 @router.post("/projects")

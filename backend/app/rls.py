@@ -27,6 +27,8 @@ def apply_rls(conn: Connection, is_pg: bool) -> None:
         f"ALTER TABLE {prefix}.user_settings ENABLE ROW LEVEL SECURITY",
         f"ALTER TABLE {prefix}.threads ENABLE ROW LEVEL SECURITY",
         f"ALTER TABLE {prefix}.projects ENABLE ROW LEVEL SECURITY",
+        f"GRANT USAGE ON SCHEMA {prefix} TO CURRENT_USER",
+        f"GRANT ALL ON ALL TABLES IN SCHEMA {prefix} TO CURRENT_USER",
     ):
         try:
             conn.execute(text(stmt))
@@ -48,27 +50,28 @@ def apply_rls(conn: Connection, is_pg: bool) -> None:
     uid_or = " OR id = COALESCE(auth.uid()::text, '')" if has_auth else ""
     owner_or = " OR owner_id = COALESCE(auth.uid()::text, '')" if has_auth else ""
     user_or = " OR user_id = COALESCE(auth.uid()::text, '')" if has_auth else ""
+    service = "current_user LIKE 'postgres%'"
 
     policies = [
         (
             f"{prefix}.profiles",
             "profiles_self",
-            f"(id = COALESCE(current_setting('app.user_id', true), ''){uid_or})",
+            f"({service} OR id = COALESCE(current_setting('app.user_id', true), ''){uid_or})",
         ),
         (
             f"{prefix}.user_settings",
             "settings_self",
-            f"(user_id = COALESCE(current_setting('app.user_id', true), ''){user_or})",
+            f"({service} OR user_id = COALESCE(current_setting('app.user_id', true), ''){user_or})",
         ),
         (
             f"{prefix}.threads",
             "threads_owner",
-            f"(owner_id IS NULL OR owner_id = COALESCE(current_setting('app.user_id', true), ''){owner_or})",
+            f"({service} OR owner_id IS NULL OR owner_id = COALESCE(current_setting('app.user_id', true), ''){owner_or})",
         ),
         (
             f"{prefix}.projects",
             "projects_owner",
-            f"(owner_id IS NULL OR owner_id = COALESCE(current_setting('app.user_id', true), ''){owner_or})",
+            f"({service} OR owner_id IS NULL OR owner_id = COALESCE(current_setting('app.user_id', true), ''){owner_or})",
         ),
     ]
     for table, name, using in policies:
