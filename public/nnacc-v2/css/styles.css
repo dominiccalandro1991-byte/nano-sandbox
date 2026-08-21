@@ -1026,3 +1026,94 @@ body.vault-locked #new-chat-btn{opacity:.45;pointer-events:none}
 }
 .trait-chip.on{background:var(--primary-dim);color:var(--primary);border-color:rgba(61,139,253,.4)}
 .settings-shell{width:min(920px,96vw)}
+
+/* —— Sidebar is a solid dock, never a see-through overlay —— */
+.icon-rail{
+  background:#0a0d12 !important;
+  z-index:70;
+  position:relative;
+}
+.sidebar{
+  background:#10161e !important;
+  opacity:1 !important;
+  backdrop-filter:none !important;
+}
+.history-rail,.sidebar-nav,.sidebar-header,.sidebar-actions,.sidebar-footer{
+  background:#10161e;
+}
+
+.sidebar-scrim{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(5,8,12,.62);
+  z-index:50;
+}
+.sidebar-scrim[hidden]{display:none !important}
+
+@media (min-width:769px){
+  .sidebar,
+  .sidebar.open,
+  .sidebar.collapsed{
+    position:relative !important;
+    top:auto !important;
+    left:auto !important;
+    right:auto !important;
+    transform:none !important;
+    height:auto !important;
+    z-index:1;
+    box-shadow:none;
+  }
+  .sidebar{
+    flex:0 0 280px;
+    width:280px !important;
+    max-width:280px;
+    align-self:stretch;
+  }
+  .sidebar.collapsed{
+    flex:0 0 0 !important;
+    width:0 !important;
+    min-width:0 !important;
+    max-width:0 !important;
+    border-right-width:0 !important;
+    overflow:hidden !important;
+    pointer-events:none;
+  }
+  .sidebar-scrim{display:none !important}
+}
+
+@media (max-width:768px){
+  .icon-rail{
+    flex:0 0 48px;
+    width:48px !important;
+  }
+  .sidebar,
+  .sidebar.open,
+  .sidebar.collapsed{
+    position:fixed !important;
+    top:0;
+    bottom:0;
+    left:48px;
+    height:100dvh !important;
+    width:min(300px, calc(100vw - 48px)) !important;
+    max-width:calc(100vw - 48px);
+    z-index:60;
+    background:#10161e !important;
+  }
+  .sidebar.collapsed,
+  .sidebar:not(.open){
+    transform:translateX(calc(-100% - 12px)) !important;
+    pointer-events:none;
+    box-shadow:none;
+  }
+  .sidebar.open{
+    transform:none !important;
+    pointer-events:auto;
+    box-shadow:16px 0 40px rgba(0,0,0,.55);
+  }
+  .sidebar-scrim:not([hidden]){
+    display:block;
+    left:48px;
+  }
+  body.drawer-open{overflow:hidden}
+}

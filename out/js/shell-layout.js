@@ -1,6 +1,5 @@
 /**
- * Sidebar panel routing + Settings cards only.
- * Do not own chat send / engines / composer.
+ * Sidebar dock (desktop) / opaque drawer (mobile) + Settings cards.
  */
 (function (global) {
   "use strict";
@@ -8,13 +7,31 @@
   function $(id) {
     return document.getElementById(id);
   }
+  function isMobile() {
+    return window.matchMedia("(max-width: 768px)").matches;
+  }
+  function setDrawer(open) {
+    var sidebar = $("sidebar");
+    var scrim = $("sidebar-scrim");
+    if (!sidebar) return;
+    if (!isMobile()) {
+      sidebar.classList.toggle("collapsed", !open);
+      sidebar.classList.toggle("open", open);
+      if (scrim) scrim.hidden = true;
+      document.body.classList.remove("drawer-open");
+      return;
+    }
+    sidebar.classList.toggle("open", open);
+    sidebar.classList.toggle("collapsed", !open);
+    if (scrim) scrim.hidden = !open;
+    document.body.classList.toggle("drawer-open", open);
+  }
 
   function setRail(which) {
     document.querySelectorAll("#icon-rail [data-rail]").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-rail") === which);
     });
     var app = $("app");
-    var sidebar = $("sidebar");
     var title = $("sidebar-panel-title");
     var labs = which === "labs" || which === "vault" || which === "aegis";
     if (app) {
@@ -22,9 +39,8 @@
       app.setAttribute("data-panel", labs ? "labs" : "chats");
     }
     if (title) title.textContent = labs ? "Labs" : "Chats";
-    if (sidebar && (which === "chats" || which === "search" || labs)) {
-      sidebar.classList.add("open");
-      sidebar.classList.remove("collapsed");
+    if (which === "chats" || which === "search" || which === "labs") {
+      setDrawer(true);
     }
   }
 
@@ -180,6 +196,7 @@
         setRail("chats");
         var chat = document.querySelector('.nav-item[data-view="chat"]');
         if (chat) chat.click();
+        if (isMobile()) setDrawer(false);
         return;
       }
       if (which === "search") {
@@ -197,12 +214,14 @@
         setRail("labs");
         var v = document.querySelector('.nav-item[data-view="vault"]');
         if (v) v.click();
+        if (isMobile()) setDrawer(false);
         return;
       }
       if (which === "aegis") {
         setRail("labs");
         var a = document.querySelector('.nav-item[data-view="aegis"]');
         if (a) a.click();
+        if (isMobile()) setDrawer(false);
         return;
       }
       if (which === "labs") {
@@ -222,7 +241,18 @@
       var view = item.getAttribute("data-view");
       if (view === "chat") setRail("chats");
       else setRail("labs");
+      if (isMobile() && view && view !== "chat") setDrawer(false);
     });
+    var hist = $("session-history");
+    if (hist) {
+      hist.addEventListener("click", function (ev) {
+        if (ev.target.closest(".session-open") && isMobile()) setDrawer(false);
+      });
+    }
+    var scrim = $("sidebar-scrim");
+    if (scrim) scrim.addEventListener("click", function () { setDrawer(false); });
+    var close = $("sidebar-close");
+    if (close) close.addEventListener("click", function () { setDrawer(false); });
   }
 
   function wireSuggest() {
@@ -311,11 +341,18 @@
       wireSuggest();
       wireSettings();
       watchMessages();
-      setRail("chats");
+      if (isMobile()) {
+        setRail("chats");
+        setDrawer(false);
+      } else {
+        setRail("chats");
+        setDrawer(true);
+      }
     },
     syncEmpty: syncEmpty,
     persistExtraSettings: persistExtraSettings,
     attachMessageActions: attachMessageActions,
-    setRail: setRail
+    setRail: setRail,
+    setDrawer: setDrawer
   };
 })(typeof window !== "undefined" ? window : globalThis);
