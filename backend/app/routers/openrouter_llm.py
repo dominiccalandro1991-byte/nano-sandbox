@@ -83,7 +83,7 @@ SUNO_ARTISTS: dict[str, str] = {
 SUNO_RULES = (
     "If the user is greeting or chatting (hi, how are you, what are you doing), "
     "reply in character in 1-4 short sentences. Do not emit a song sheet. "
-    "If they want a song, track, lyrics, beat, concept, or Suno prompt, your entire reply MUST start with the word CONCEPT "
+    "If they ask for a song without a theme, invent a strong in-character concept and still emit the full sheet immediately. "
     "and contain only this sheet: CONCEPT (2-6 sentences of story/emotion/arrangement), TITLE (one line), "
     "STYLE (Suno style prompt, max 1000 characters: genre, BPM, instruments, mix, vocal character), "
     "LYRICS (full lyrics max 5000 characters, labeled [Verse]/[Chorus]/[Bridge]). "

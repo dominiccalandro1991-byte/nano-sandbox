@@ -162,11 +162,18 @@
     addMsg("user", text);
     var btn = $("artists-send");
     if (btn) btn.disabled = true;
+    var apiUser = text;
+    if (/full song|full track|write (a |the )?song|suno|lyrics|the song/i.test(text) && text.length < 120) {
+      apiUser = text + " Invent a complete in-character concept. Output CONCEPT then TITLE then STYLE then LYRICS now. No questions. No planning.";
+    }
     var history = thread().filter(function (m) {
       if (m.role === "user") return true;
       if (m.role !== "assistant") return false;
       return String(m.content || "").indexOf("Hey — I'm ") !== 0;
     }).slice(-10);
+    if (history.length && history[history.length - 1].role === "user") {
+      history = history.slice(0, -1).concat([{ role: "user", content: apiUser }]);
+    }
 
     function extract(x) {
       var j = x.j || {};
