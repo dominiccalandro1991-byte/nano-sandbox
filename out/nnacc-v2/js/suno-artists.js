@@ -7,7 +7,14 @@
     { id: "aisle-nine", glyph: "⚙️", name: "Aisle Nine", lane: "Industrial-pop / fluorescent noir" },
     { id: "dj-fault-line", glyph: "📡", name: "DJ Fault Line", lane: "Seismic bass / club aftershock" }
   ];
-  var MODEL = "google/gemma-4-26b-a4b-it:free";
+  var MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+  var FALLBACKS = [
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "poolside/laguna-xs-2.1:free",
+    "poolside/laguna-s-2.1:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-26b-a4b-it:free"
+  ];
   var current = ARTISTS[0];
   var threads = {};
 
@@ -155,22 +162,52 @@
     addMsg("user", text);
     var btn = $("artists-send");
     if (btn) btn.disabled = true;
-    var history = thread().filter(function (m) { return m.role === "user" || m.role === "assistant"; }).slice(-12);
-    fetch(remote() + "/llm/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: history,
-        persona: current.id,
-        suno: true,
-        max_tokens: 4096
+    var history = thread().filter(function (m) {
+      if (m.role === "user") return true;
+      if (m.role !== "assistant") return false;
+      return String(m.content || "").indexOf("Hey — I'm ") !== 0;
+    }).slice(-10);
+
+    function extract(x) {
+      var j = x.j || {};
+      if (j.content) return { text: j.content, ok: true };
+      if (j.result) return { text: j.result, ok: true };
+      var d = j.detail;
+      if (typeof d === "string") return { text: d, ok: false };
+      var msg = d && d.detail && d.detail.error && d.detail.error.message;
+      if (x.ok === false && (d && d.status === 429 || /429/.test(String(msg || "")))) {
+        return { text: "", ok: false, busy: true };
+      }
+      if (msg) return { text: msg, ok: false, busy: /rate-limited|429|unavailable/i.test(msg) };
+      return { text: "", ok: false };
+    }
+
+    function tryModel(i) {
+      var mid = FALLBACKS[i] || MODEL;
+      return fetch(remote() + "/llm/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          model: mid,
+          messages: history,
+          persona: current.id,
+          suno: true,
+          max_tokens: 2500
+        })
       })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (x) {
-        var body = x.j.detail || x.j;
-        var reply = (body && (body.content || body.result)) || (typeof body === "string" ? body : "") || "I couldn't reach the booth. Try again.";
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          var got = extract(x);
+          if (got.ok && got.text) return got.text;
+          if (got.busy && i + 1 < FALLBACKS.length) return tryModel(i + 1);
+          if (got.text) return got.text;
+          if (i + 1 < FALLBACKS.length) return tryModel(i + 1);
+          return "The free models are busy right now. Send that again in a few seconds.";
+        });
+    }
+
+    tryModel(0)
+      .then(function (reply) {
         thread().push({ role: "assistant", content: reply });
         addMsg("assistant", reply);
       })

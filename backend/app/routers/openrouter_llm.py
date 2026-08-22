@@ -220,6 +220,61 @@ def list_models() -> dict[str, Any]:
     }
 
 
+SUNO_FALLBACKS = [
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "poolside/laguna-xs-2.1:free",
+    "poolside/laguna-s-2.1:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-26b-a4b-it:free",
+]
+
+
+def _model_chain(preferred: str, *, suno: bool) -> list[str]:
+    chain: list[str] = []
+    if preferred in ALLOWED_IDS:
+        chain.append(preferred)
+    extras = SUNO_FALLBACKS if suno else []
+    for mid in extras:
+        if mid in ALLOWED_IDS and mid not in chain:
+            chain.append(mid)
+    return chain or list(SUNO_FALLBACKS)
+
+
+def _pack_reply(body: ChatBody, model: str, data: dict[str, Any], max_out: int, via: str) -> dict[str, Any]:
+    try:
+        content = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise HTTPException(status_code=502, detail={"error": "malformed_openrouter_response", "raw": data}) from exc
+    if _looks_like_engine_dump(content or ""):
+        content = (
+            "I stay in character as the selected artist. "
+            "I do not reveal internal systems or engine source."
+        )
+    finish = None
+    try:
+        finish = data["choices"][0].get("finish_reason")
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "model": model,
+        "content": content,
+        "result": content,
+        "usage": data.get("usage"),
+        "id": data.get("id"),
+        "persona": body.persona,
+        "engine_id": body.engine_id,
+        "max_tokens_used": max_out,
+        "context_max": CONTEXT_MAX.get(model),
+        "finish_reason": finish,
+        "via": via,
+        "continue_needed": bool(
+            finish == "length"
+            or (isinstance(content, str) and "CONTINUE_NEEDED" in content[-80:])
+        ),
+    }
+
+
 def _request_key(settings: Settings, x_user_openrouter_key: str | None) -> str:
     user_key = (x_user_openrouter_key or "").strip()
     if user_key:
@@ -257,6 +312,8 @@ async def chat(
     max_out = _compute_max_out(
         model, messages, body.max_tokens if body.max_tokens and body.max_tokens > 0 else None
     )
+    if body.suno:
+        max_out = min(max_out, 3072)
     payload = {
         "model": model,
         "messages": messages,
@@ -273,45 +330,22 @@ async def chat(
         if kh_count() == 0:
             kh_boot()
         if kh_count() > 0:
-            harbor = kh_chat("studio", payload)
-            if harbor.get("status") == 429:
-                raise HTTPException(status_code=429, detail=harbor)
-            if harbor.get("ok"):
-                data = harbor["data"]
-                try:
-                    content = data["choices"][0]["message"]["content"]
-                except (KeyError, IndexError, TypeError) as exc:
-                    raise HTTPException(status_code=502, detail={"error": "malformed_openrouter_response", "raw": data}) from exc
-                # Final safety: never return an engine dump to the client
-                if _looks_like_engine_dump(content or ""):
-                    content = (
-                        "I stay in character as the selected artist. "
-                        "I do not reveal internal systems or engine source."
-                    )
-                finish = None
-                try:
-                    finish = data["choices"][0].get("finish_reason")
-                except Exception:
-                    pass
-                return {
-                    "ok": True,
-                    "model": model,
-                    "content": content,
-                    "result": content,
-                    "usage": data.get("usage"),
-                    "id": data.get("id"),
-                    "persona": body.persona,
-                    "engine_id": body.engine_id,
-                    "max_tokens_used": max_out,
-                    "context_max": CONTEXT_MAX.get(model),
-                    "finish_reason": finish,
-                    "via": "keyharbor",
-                    "continue_needed": bool(
-                        finish == "length"
-                        or (isinstance(content, str) and "CONTINUE_NEEDED" in content[-80:])
-                    ),
-                }
-            raise HTTPException(status_code=int(harbor.get("status") or 502), detail=harbor)
+            last_harbor: dict[str, Any] | None = None
+            for mid in _model_chain(model, suno=body.suno):
+                payload["model"] = mid
+                harbor = kh_chat("studio", payload)
+                last_harbor = harbor
+                if harbor.get("ok"):
+                    packed = _pack_reply(body, mid, harbor["data"], max_out, "keyharbor")
+                    packed["via"] = "keyharbor"
+                    return packed
+                status = int(harbor.get("status") or 0)
+                if status in (429, 404, 502, 503):
+                    continue
+                raise HTTPException(status_code=status or 502, detail=harbor)
+            if last_harbor and last_harbor.get("status") == 429:
+                raise HTTPException(status_code=429, detail=last_harbor)
+            raise HTTPException(status_code=int((last_harbor or {}).get("status") or 502), detail=last_harbor)
 
     key = _request_key(settings, x_user_openrouter_key)
     url = settings.openrouter_base_url.rstrip("/") + "/chat/completions"

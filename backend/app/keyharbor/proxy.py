@@ -61,7 +61,7 @@ def forward(
         used_id, api_key = got
         status, raw = _post(f"{OPENROUTER}{path}", payload, api_key, timeout)
         last_status, last_body = status, raw
-        if status in (401, 429, 402):
+        if status == 401:
             vault.trip(used_id)
             continue
         break
