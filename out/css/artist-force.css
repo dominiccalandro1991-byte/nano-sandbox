@@ -1,4 +1,4 @@
-/* P0 FORCE — Artist persona toolbar always visible (empty + filled chat) */
+/* P0 FORCE — Artist persona toolbar always visible */
 #view-chat .chat-toolbar,
 #view-chat #chat-toolbar {
   display: flex !important;
@@ -31,7 +31,6 @@
   margin-right: 4px;
   white-space: nowrap;
 }
-/* Undo empty-state hide for toolbar only */
 #view-chat:not(.has-messages) .chat-toolbar {
   display: flex !important;
 }
