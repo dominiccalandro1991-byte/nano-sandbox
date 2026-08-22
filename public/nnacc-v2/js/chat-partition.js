@@ -1,6 +1,11 @@
 /**
  * Chat Core Partition — streaming LLM + multi-pass continuation.
  * Isolated from EngineIsolates / AST plane.
+ *
+ * P0 HARD LOCK (2026-08-21):
+ * No chat surface may ever render engine source, system locks,
+ * vocal profiles, or internal logic. Every assistant message is
+ * sanitized before storage and display.
  */
 (function (global) {
   "use strict";
@@ -29,6 +34,56 @@
     streaming: false,
     threadId: "thread_" + Date.now().toString(36)
   };
+
+  /* ------------------------------------------------------------------
+     SANITIZER — permanent hard lock against engine source leaks
+     ------------------------------------------------------------------ */
+  function sanitizeAssistantContent(raw) {
+    if (!raw || typeof raw !== "string") return raw || "";
+    var text = raw;
+    var lower = text.toLowerCase().replace(/\s+/g, " ");
+
+    var dumpMarkers = [
+      "you are the exclusive production engine",
+      "artist identity is absolute and never mixed",
+      "vocal profile (exact",
+      "systemlock",
+      "const artists =",
+      "artistrofiles",
+      "checklistweights",
+      "vc010-artist-engine",
+      "function (global)",
+      "never mix artist identities",
+      "production core:",
+      "originality constraints:",
+      "you are the exclusive production engine for",
+      "artist identity is absolute",
+      "checklist_weights",
+      "lyricseed",
+      "buildsystemprompt"
+    ];
+
+    var hits = 0;
+    for (var i = 0; i < dumpMarkers.length; i++) {
+      if (lower.indexOf(dumpMarkers[i].replace(/\s+/g, " ")) !== -1) hits++;
+    }
+
+    // Also catch long JS-looking dumps that mention engine/persona
+    var looksLikeSource =
+      text.length > 1800 &&
+      /function\s*\(|const\s+\w+\s*=\s*\{|\/\*\s*=+/.test(text) &&
+      /engine|persona|system|vocal|artist/i.test(text);
+
+    if (hits >= 2 || (hits >= 1 && text.length > 1600) || looksLikeSource) {
+      return (
+        "I stay in character as the selected artist. " +
+        "I do not reveal internal systems, engine source, or production locks. " +
+        "Ask me for a song, concept, or creative direction and I will deliver."
+      );
+    }
+
+    return text;
+  }
 
   function backendBase() {
     try {
@@ -69,9 +124,14 @@
     }
     return h;
   }
+
   function withMemory(messages) {
     var bits = global.Account && global.Account.systemBits && global.Account.systemBits();
     if (!bits) return messages;
+    // Never allow memory bits that look like engine dumps
+    if (typeof bits === "string" && bits.length > 800 && /engine|systemlock|vocal profile/i.test(bits)) {
+      return messages;
+    }
     return [{ role: "system", content: bits }].concat(messages || []);
   }
 
@@ -124,7 +184,9 @@
                 j.choices[0].delta.content;
               if (delta) {
                 full += delta;
-                if (onToken) onToken(delta, full);
+                // Sanitize on every token update so the UI never shows a dump mid-stream
+                var safe = sanitizeAssistantContent(full);
+                if (onToken) onToken(delta, safe);
               }
               if (j.choices && j.choices[0] && j.choices[0].finish_reason) {
                 finish = j.choices[0].finish_reason;
@@ -135,7 +197,7 @@
           }
         }
         return {
-          content: full,
+          content: sanitizeAssistantContent(full),
           finish_reason: finish,
           continue_needed: finish === "length",
           max_tokens_used: maxOut
@@ -166,8 +228,10 @@
       if (typeof detail === "object") detail = detail.message || JSON.stringify(detail);
       throw new Error(detail || "LLM HTTP " + res2.status);
     }
-    var content = body.content || body.result || "";
+    var content = sanitizeAssistantContent(body.content || body.result || "");
     if (onToken && content) onToken(content, content);
+    body.content = content;
+    body.result = content;
     return body;
   }
 
@@ -190,10 +254,12 @@
       var msgs = historyMessages().slice(0, -1);
       msgs.push({ role: "user", content: text });
       var result = await postChat(msgs, function (delta, full) {
-        assistant.content = full;
+        assistant.content = sanitizeAssistantContent(full);
         if (opts.onUpdate) opts.onUpdate(assistant);
       });
-      assistant.content = result.content || result.result || assistant.content;
+      assistant.content = sanitizeAssistantContent(
+        result.content || result.result || assistant.content
+      );
       assistant.finish_reason = result.finish_reason;
       var pass = 0;
       var maxPasses = 4;
@@ -211,15 +277,16 @@
           { role: "assistant", content: assistant.content },
           { role: "user", content: contUser }
         ]);
-        // Don't push continuation prompts into visible history — keep single assistant bubble
         result = await postChat(contMsgs, function (delta, full) {
-          assistant.content =
-            assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + full;
+          assistant.content = sanitizeAssistantContent(
+            assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + full
+          );
           if (opts.onUpdate) opts.onUpdate(assistant);
         });
         var more = result.content || result.result || "";
-        assistant.content =
-          assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + more;
+        assistant.content = sanitizeAssistantContent(
+          assistant.content.replace(/\s*CONTINUE_NEEDED\s*$/i, "") + more
+        );
       }
       if (global.CodegenUtils && global.CodegenUtils.extractFileTree) {
         assistant.files = global.CodegenUtils.extractFileTree(assistant.content);
@@ -228,7 +295,7 @@
       return assistant.content;
     } catch (err) {
       var msg = err && err.message ? err.message : String(err);
-      assistant.content = msg;
+      assistant.content = sanitizeAssistantContent(msg);
       assistant.failed = true;
       if (opts.onUpdate) opts.onUpdate(assistant);
       throw err;
@@ -258,6 +325,7 @@
   global.ChatPartition = {
     PERSONAS: PERSONAS,
     FREE_MODELS: FREE_MODELS,
+    sanitizeAssistantContent: sanitizeAssistantContent,
     getState: function () {
       return {
         personaId: chatState.personaId,
@@ -276,9 +344,11 @@
     },
     hydrate: function (msgs) {
       chatState.messages = (msgs || []).map(function (m) {
+        var content = m.content || m.text || "";
+        if (m.role === "assistant") content = sanitizeAssistantContent(content);
         return {
           role: m.role,
-          content: m.content || m.text || "",
+          content: content,
           ts: m.ts || Date.now(),
           files: m.files || []
         };
