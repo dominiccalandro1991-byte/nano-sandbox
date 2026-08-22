@@ -26,6 +26,36 @@ def test_chat_rejects_unknown_model():
     assert r.status_code == 400
 
 
+def test_suno_system_prompt_is_artist_not_coder():
+    from app.routers.openrouter_llm import ChatBody, ChatMessage, _build_messages
+
+    body = ChatBody(
+        model="google/gemma-4-26b-a4b-it:free",
+        messages=[ChatMessage(role="user", content="hi what are you doing?")],
+        persona="funkastatic",
+        suno=True,
+    )
+    msgs = _build_messages(body)
+    sys = msgs[0]["content"]
+    assert "Funkastatic" in sys
+    assert "STYLE" in sys and "LYRICS" in sys
+    assert "multi-file repositories" not in sys
+
+
+def test_regular_chat_is_not_an_artist():
+    from app.routers.openrouter_llm import ChatBody, ChatMessage, _build_messages
+
+    body = ChatBody(
+        model="google/gemma-4-26b-a4b-it:free",
+        messages=[ChatMessage(role="user", content="hi")],
+        persona="vail-cipher",
+        suno=False,
+    )
+    sys = _build_messages(body)[0]["content"]
+    assert "Voltage Cipher Studio" in sys
+    assert "You are Vail Cipher" not in sys
+
+
 def test_chat_without_key_returns_503(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("NANO_SANDBOX_OPENROUTER_API_KEY", raising=False)

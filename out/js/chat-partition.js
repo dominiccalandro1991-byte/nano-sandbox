@@ -35,6 +35,9 @@
     threadId: "thread_" + Date.now().toString(36)
   };
 
+  /* ------------------------------------------------------------------
+     SANITIZER — permanent hard lock against engine source leaks
+     ------------------------------------------------------------------ */
   function sanitizeAssistantContent(raw) {
     if (!raw || typeof raw !== "string") return raw || "";
     var text = raw;
@@ -65,6 +68,7 @@
       if (lower.indexOf(dumpMarkers[i].replace(/\s+/g, " ")) !== -1) hits++;
     }
 
+    // Also catch long JS-looking dumps that mention engine/persona
     var looksLikeSource =
       text.length > 1800 &&
       /function\s*\(|const\s+\w+\s*=\s*\{|\/\*\s*=+/.test(text) &&
@@ -124,6 +128,7 @@
   function withMemory(messages) {
     var bits = global.Account && global.Account.systemBits && global.Account.systemBits();
     if (!bits) return messages;
+    // Never allow memory bits that look like engine dumps
     if (typeof bits === "string" && bits.length > 800 && /engine|systemlock|vocal profile/i.test(bits)) {
       return messages;
     }
@@ -139,6 +144,7 @@
     var base = backendBase();
     messages = withMemory(messages);
 
+    // Prefer SSE stream
     try {
       var res = await fetch(base + "/llm/chat/stream", {
         method: "POST",
@@ -146,7 +152,6 @@
         body: JSON.stringify({
           model: modelId,
           messages: messages,
-          persona: chatState.personaId,
           max_tokens: maxOut,
           stream: true
         })
@@ -178,6 +183,7 @@
                 j.choices[0].delta.content;
               if (delta) {
                 full += delta;
+                // Sanitize on every token update so the UI never shows a dump mid-stream
                 var safe = sanitizeAssistantContent(full);
                 if (onToken) onToken(delta, safe);
               }
@@ -202,13 +208,13 @@
       } catch (e) {}
     }
 
+    // Non-stream fallback
     var res2 = await fetch(base + "/llm/chat", {
       method: "POST",
       headers: chatHeaders("application/json"),
       body: JSON.stringify({
         model: modelId,
         messages: messages,
-        persona: chatState.personaId,
         max_tokens: maxOut
       })
     });

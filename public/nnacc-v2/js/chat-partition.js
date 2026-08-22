@@ -152,7 +152,6 @@
         body: JSON.stringify({
           model: modelId,
           messages: messages,
-          persona: chatState.personaId,
           max_tokens: maxOut,
           stream: true
         })
@@ -216,7 +215,6 @@
       body: JSON.stringify({
         model: modelId,
         messages: messages,
-        persona: chatState.personaId,
         max_tokens: maxOut
       })
     });

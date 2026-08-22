@@ -66,6 +66,7 @@
         <button class="nav-item" data-view="vault"><span class="nav-icon">📁</span><span>File Vault</span><span class="badge" id="vault-badge-count">0</span></button>
         <div class="nav-section-label">Section B · Creative Studio</div>
         <button class="nav-item" data-view="studio"><span class="nav-icon">🎨</span><span>Creative Canvas</span><span class="badge">GEN</span></button>
+        <button class="nav-item" data-view="artists"><span class="nav-icon">🎵</span><span>Suno Artists</span><span class="badge">5</span></button>
         <div class="nav-section-label">Section C · Macro &amp; Stress</div>
         <button class="nav-item" data-view="macros"><span class="nav-icon">🧩</span><span>Macro Engines</span><span class="badge">5 grp</span></button>
         <button class="nav-item" data-view="engine-chat" data-macro="research"><span class="nav-icon">🔬</span><span>Research Chat</span><span class="badge">φ1–5</span></button>
@@ -175,6 +176,30 @@
       <main id="view-registry" class="view"><div class="panel"><h2>Engine Registry (1–25)</h2><ul id="engine-list" class="engine-list"></ul></div></main>
       <main id="view-vault" class="view"><div class="panel vault-panel"><h2>File System / Vault</h2><p class="muted">Full file payloads for the active thread. Chat stream shows only compact badges.</p><div id="vault-file-list" class="vault-file-list"></div><p id="vault-empty" class="muted small" hidden>No files in this thread yet. Drop a file on the chat surface to store it.</p></div></main>
       <main id="view-studio" class="view"><div class="studio-layout"><div class="studio-input-panel"><h2>Creative Canvas · Studio Prompt Suite</h2><p class="muted">Drop a song lyric sheet, music brief, app concept, or free-form idea. 25-engine validation, Canvas Mapper, 8K studio prompt.</p><div id="studio-drop" class="drop-zone studio-drop"><div class="drop-overlay"><p>Drop .md / .txt / lyrics / concept</p></div><textarea id="studio-input" class="studio-textarea" placeholder="Paste lyrics, BPM notes, app vision, or any creative concept here…" rows="8" aria-label="Studio concept input"></textarea></div><div class="studio-actions"><label class="file-picker-btn studio-file" title="Attach concept file">📎 Attach<input type="file" id="studio-file-picker" accept=".md,.txt,.json,text/plain,application/json" hidden /></label><button id="studio-validate-btn" class="primary-btn">Validate via 25 Engines & Map Canvas</button><button id="studio-copy-prompt-btn" class="ghost-btn" disabled>Copy 8K Studio Prompt</button></div></div><div class="studio-output-panel"><section class="studio-section"><h3>1 · Multi-Engine Validation</h3><div id="studio-validation" class="code-block studio-block">Awaiting concept…</div></section><section class="studio-section"><h3>2 · Dynamic Canvas Mapping Pipeline</h3><div id="studio-canvas-map" class="code-block studio-block">—</div></section><section class="studio-section"><h3>3 · 8K Studio Prompt (Media Architect)</h3><div id="studio-prompt" class="code-block studio-block prompt-block">—</div></section></div></div></main>
+      <main id="view-artists" class="view">
+        <div class="artists-shell">
+          <div id="artists-picker" class="artists-picker">
+            <p class="artists-kicker">Suno booth</p>
+            <h2>Pick an artist</h2>
+            <p class="muted">Regular NNACC chat stays on the home thread. This booth is only for full Suno sheets — concept, title, style (≤1000), lyrics (≤5000). Greet them like a person; ask for a song when you want a track.</p>
+            <div id="artists-grid" class="artists-grid"></div>
+          </div>
+          <div id="artists-chat" class="artists-chat" hidden>
+            <header class="artists-chat-head">
+              <button type="button" id="artists-back" class="ghost-btn">← Artists</button>
+              <div>
+                <h2 id="artists-name">Artist</h2>
+                <p id="artists-lane" class="muted small"></p>
+              </div>
+            </header>
+            <div id="artists-log" class="message-list artists-log" role="log"></div>
+            <form id="artists-form" class="artists-form">
+              <textarea id="artists-input" rows="2" placeholder="Say hi — or ask for a full Suno track" aria-label="Artist message"></textarea>
+              <button type="submit" id="artists-send" class="primary-btn">Send</button>
+            </form>
+          </div>
+        </div>
+      </main>
       <main id="view-macros" class="view">
         <div class="panel macro-panel">
           <div class="panel-head-row">
@@ -616,6 +641,7 @@
   <script src="js/incidentdojo.js?v=incidentdojo-1"></script>
   <script src="js/scopeshield.js?v=scopeshield-1"></script>
   <script src="js/keyharbor.js?v=keyharbor-1"></script>
+  <script src="js/suno-artists.js?v=suno-1"></script>
   <script src="js/ui-controller.js?v=block-d"></script>
 </body>
 </html>
