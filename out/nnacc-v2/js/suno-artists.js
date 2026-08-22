@@ -7,11 +7,11 @@
     { id: "aisle-nine", glyph: "⚙️", name: "Aisle Nine", lane: "Industrial-pop / fluorescent noir" },
     { id: "dj-fault-line", glyph: "📡", name: "DJ Fault Line", lane: "Seismic bass / club aftershock" }
   ];
-  var MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+  var MODEL = "poolside/laguna-xs-2.1:free";
   var FALLBACKS = [
-    "nvidia/nemotron-3-super-120b-a12b:free",
     "poolside/laguna-xs-2.1:free",
     "poolside/laguna-s-2.1:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
     "nvidia/nemotron-3-ultra-550b-a55b:free",
     "google/gemma-4-26b-a4b-it:free"
   ];

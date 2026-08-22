@@ -47,8 +47,8 @@ def test_suno_fallback_skips_busy_preferred():
 
     chain = _model_chain("google/gemma-4-26b-a4b-it:free", suno=True)
     assert chain[0] == "google/gemma-4-26b-a4b-it:free"
-    assert "nvidia/nemotron-3-super-120b-a12b:free" in chain
     assert "poolside/laguna-xs-2.1:free" in chain
+    assert "nvidia/nemotron-3-super-120b-a12b:free" in chain
 
     from app.routers.openrouter_llm import ChatBody, ChatMessage, _build_messages
 
